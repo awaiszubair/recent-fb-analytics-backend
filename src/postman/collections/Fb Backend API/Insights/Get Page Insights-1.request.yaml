@@ -1,0 +1,20 @@
+$kind: http-request
+name: Get Page Insights
+url: "{{baseUrl}}/api/v1/insights/pages/{{pageId}}"
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"metrics\": [\"page_impressions_unique\"],\r
+
+    \  \"access_token\": \"{{access_token}}\",\r
+
+    \  \"options\": {\r
+
+    \    \"period\": \"day\"\r
+
+    \  }\r
+
+    }"
+order: 816050198287152

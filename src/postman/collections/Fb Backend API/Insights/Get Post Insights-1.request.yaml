@@ -1,0 +1,14 @@
+$kind: http-request
+name: Get Post Insights
+url: "{{baseUrl}}/api/v1/insights/posts/{{postId}}"
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"metrics\": [\"post_impressions_unique\"],\r
+
+    \  \"access_token\": \"{{access_token}}\"\r
+
+    }"
+order: 3082068981856855

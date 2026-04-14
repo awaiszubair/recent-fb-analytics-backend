@@ -1,0 +1,10 @@
+$kind: http-request
+name: Get Page Metric
+method: GET
+url: '{{base_url}}/api/v1/pages/:pageId/insights/:metricName'
+order: 5000
+pathVariables:
+  - key: pageId
+    value: page_123
+  - key: metricName
+    value: page_impressions

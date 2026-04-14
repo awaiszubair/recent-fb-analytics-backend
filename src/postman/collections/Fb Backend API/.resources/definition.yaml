@@ -1,0 +1,7 @@
+$kind: collection
+name: FB Backend API
+variables:
+  base_url: http://localhost:3000
+  access_token: ""
+  since: ""
+  until: ""

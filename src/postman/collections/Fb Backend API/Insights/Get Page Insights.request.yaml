@@ -1,0 +1,26 @@
+$kind: http-request
+name: 'Get Page Insights'
+method: POST
+url: '{{baseUrl}}/api/v1/insights/pages/:pageId'
+order: 3000
+pathVariables:
+  - key: pageId
+    value: '{{pageId}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  mode: raw
+  raw: |-
+    {
+      "metrics": "page_impressions,page_engaged_users",
+      "access_token": "{{access_token}}",
+      "period": "day",
+      "since": "",
+      "until": ""
+    }
+notes: |
+  **Alternative: GET method**
+  You can also use GET with query parameters:
+  
+  GET {{baseUrl}}/api/v1/insights/pages/:pageId?metrics=page_impressions,page_engaged_users&access_token={{access_token}}&period=day

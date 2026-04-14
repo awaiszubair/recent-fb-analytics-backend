@@ -1,0 +1,23 @@
+$kind: http-request
+name: 'Get Post Insights'
+method: POST
+url: '{{baseUrl}}/api/v1/insights/posts/:postId'
+order: 5000
+pathVariables:
+  - key: postId
+    value: '{{postId}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  mode: raw
+  raw: |-
+    {
+      "metrics": "post_impressions,post_engaged_users",
+      "access_token": "{{access_token}}"
+    }
+notes: |
+  **Alternative: GET method**
+  You can also use GET with query parameters:
+  
+  GET {{baseUrl}}/api/v1/insights/posts/:postId?metrics=post_impressions,post_engaged_users&access_token={{access_token}}

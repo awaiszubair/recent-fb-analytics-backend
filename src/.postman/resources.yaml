@@ -1,0 +1,16 @@
+# Use this workspace to collaborate
+workspace:
+  id: ""
+
+# Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
+
+cloudResources:
+  collections:
+    ..\postman\collections\Fb Backend API - Insights: dac9202e-86d1-48d4-b6e4-8c22ca2be195
+    ..\postman\collections\Fb Backend API - Insights-1: 5957499b-840a-49d3-946b-23efcb01df9a
+
+# All resources in the `postman/` folder are automatically registered in Local View.
+# Point to additional files outside the `postman/` folder to register them individually. Example:
+#localResources:
+#  collections:
+#    - ../tests/E2E Test Collection/

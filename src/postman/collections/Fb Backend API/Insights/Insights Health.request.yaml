@@ -1,0 +1,5 @@
+$kind: http-request
+name: 'Insights Health'
+method: GET
+url: '{{baseUrl}}/api/v1/insights/health'
+order: 1000

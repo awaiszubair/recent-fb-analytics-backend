@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get All Examples
+method: GET
+url: '{{base_url}}/api/v1/example'
+order: 1000

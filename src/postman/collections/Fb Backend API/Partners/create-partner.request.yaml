@@ -1,0 +1,17 @@
+$kind: http-request
+name: Create Partner
+method: POST
+url: '{{base_url}}/api/v1/partners'
+order: 4000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "user_id": "user_123",
+      "name": "Acme Partner",
+      "email": "partner@example.com",
+      "company": "Acme Inc"
+    }

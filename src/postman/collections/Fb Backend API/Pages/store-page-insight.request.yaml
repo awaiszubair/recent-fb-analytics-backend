@@ -1,0 +1,20 @@
+$kind: http-request
+name: Store Page Insight
+method: POST
+url: '{{base_url}}/api/v1/pages/:pageId/insights'
+order: 6000
+pathVariables:
+  - key: pageId
+    value: page_123
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "metric_name": "page_impressions",
+      "value": 1024,
+      "period": "day",
+      "end_time": "2026-04-09T00:00:00.000Z"
+    }

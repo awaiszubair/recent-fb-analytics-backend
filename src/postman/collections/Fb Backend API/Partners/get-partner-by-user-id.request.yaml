@@ -1,0 +1,8 @@
+$kind: http-request
+name: Get Partner By User ID
+method: GET
+url: '{{base_url}}/api/v1/partners/user/:userId'
+order: 3000
+pathVariables:
+  - key: userId
+    value: user_123

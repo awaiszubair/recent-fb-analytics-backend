@@ -1,0 +1,18 @@
+$kind: http-request
+name: Get Multiple Page Insights
+method: POST
+url: "{{baseUrl}}/api/v1/insights/pages/batch"
+order: 4000
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "pageIds": ["1036934312835044","1036934312835044"],
+      "metrics": ["page_impressions_unique"],
+      "access_token": "{{access_token}}",
+      "options": {
+        "period": "day"
+      }
+    }

@@ -1,0 +1,15 @@
+$kind: http-request
+name: Get Post Comments Count
+method: POST
+url: "{{base_url}}/api/v1/insights/posts/:postId/comments-count"
+order: 8000
+pathVariables:
+  postId: 1036934312835044_122105943447067849
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "access_token": "{{access_token}}"
+    }

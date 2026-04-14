@@ -1,0 +1,8 @@
+$kind: http-request
+name: Get Post By ID
+method: GET
+url: '{{base_url}}/api/v1/posts/:postId'
+order: 1000
+pathVariables:
+  - key: postId
+    value: post_123

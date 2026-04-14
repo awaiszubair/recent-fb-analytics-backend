@@ -1,0 +1,8 @@
+$kind: http-request
+name: Get Partner By ID
+method: GET
+url: '{{base_url}}/api/v1/partners/:partnerId'
+order: 2000
+pathVariables:
+  - key: partnerId
+    value: partner_123

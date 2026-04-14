@@ -1,0 +1,155 @@
+{
+  "info": {
+    "name": "Fb Backend API - Insights",
+    "description": "Generated from the Insights YAML requests under postman/collections/Fb Backend API/Insights. Placeholder duplicate files with blank or duplicate content were omitted to keep the import clean.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "pageId",
+      "value": "1234567890"
+    },
+    {
+      "key": "postId",
+      "value": "1234567890_0987654321"
+    }
+  ],
+  "item": [
+    {
+      "name": "Insights Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/insights/health"
+      },
+      "response": []
+    },
+    {
+      "name": "Get Available Metrics",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/insights/metrics"
+      },
+      "response": []
+    },
+    {
+      "name": "Get Page Insights",
+      "description": "**Alternative: GET method**\nYou can also use GET with query parameters:\n\nGET {{baseUrl}}/api/v1/insights/pages/:pageId?metrics=page_impressions,page_engaged_users&access_token={{access_token}}&period=day",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"metrics\":\"page_impressions,page_engaged_users\",\"access_token\":\"{{access_token}}\",\"period\":\"day\",\"since\":\"\",\"until\":\"\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/insights/pages/:pageId",
+          "variable": [
+            {
+              "key": "pageId",
+              "value": "{{pageId}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Multiple Page Insights",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"pageIds\":[\"1036934312835044,1036934312835044\"],\"metrics\":[\"page_impressions_unique\"],\"access_token\":\"{{access_token}}\",\"options\":{\"period\":\"day\"}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/v1/insights/pages/batch"
+      },
+      "response": []
+    },
+    {
+      "name": "Get Post Insights",
+      "description": "**Alternative: GET method**\nYou can also use GET with query parameters:\n\nGET {{baseUrl}}/api/v1/insights/posts/:postId?metrics=post_impressions,post_engaged_users&access_token={{access_token}}",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"metrics\":\"post_impressions,post_engaged_users\",\"access_token\":\"{{access_token}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/insights/posts/:postId",
+          "variable": [
+            {
+              "key": "postId",
+              "value": "{{postId}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Multiple Post Insights",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"postIds\":[\"{{postId}}\"],\"metrics\":[\"post_impressions\",\"post_engaged_users\"],\"access_token\":\"{{access_token}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/v1/insights/posts/batch"
+      },
+      "response": []
+    }
+  ]
+}

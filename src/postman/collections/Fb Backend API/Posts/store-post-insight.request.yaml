@@ -1,0 +1,20 @@
+$kind: http-request
+name: Store Post Insight
+method: POST
+url: '{{base_url}}/api/v1/posts/:postId/insights'
+order: 6000
+pathVariables:
+  - key: postId
+    value: post_123
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "metric_name": "post_impressions",
+      "value": 540,
+      "period": "lifetime",
+      "end_time": "2026-04-09T00:00:00.000Z"
+    }

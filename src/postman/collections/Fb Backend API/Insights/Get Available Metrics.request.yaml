@@ -1,0 +1,5 @@
+$kind: http-request
+name: 'Get Available Metrics'
+method: GET
+url: '{{baseUrl}}/api/v1/insights/metrics'
+order: 2000

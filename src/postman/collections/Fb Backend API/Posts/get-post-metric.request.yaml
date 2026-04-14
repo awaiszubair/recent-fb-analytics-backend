@@ -1,0 +1,10 @@
+$kind: http-request
+name: Get Post Metric
+method: GET
+url: '{{base_url}}/api/v1/posts/:postId/insights/:metricName'
+order: 5000
+pathVariables:
+  - key: postId
+    value: post_123
+  - key: metricName
+    value: post_impressions
