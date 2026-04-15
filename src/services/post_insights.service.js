@@ -1,4 +1,4 @@
-const PostInsightsModel = require('../models/PostInsights');
+const PostInsightsModel = require('../repositories/PostInsights');
 
 // Create post insight
 const createPostInsight = async (insightData) => {

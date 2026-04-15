@@ -1,5 +1,15 @@
 const { getDB } = require('../config/database');
 const { validateData } = require('../utils/schema');
+const {
+  buildWhere,
+  normalizeRecord,
+  normalizeRecords,
+  stripUndefined,
+  upsertByLookup
+} = require('../utils/prismaHelpers');
+
+const getPostEarningsDelegate = () => getDB().cmEarningsPost;
+const getPageEarningsDelegate = () => getDB().cmEarningsPage;
 
 // Create CM earnings for post
 const createPostEarnings = async (earningsData) => {
@@ -7,13 +17,11 @@ const createPostEarnings = async (earningsData) => {
     const { valid, errors } = validateData('cm_earnings_post', earningsData);
     if (!valid) throw new Error(`Validation failed: ${errors.join(', ')}`);
 
-    const { data, error } = await getDB()
-      .from('cm_earnings_post')
-      .insert([earningsData])
-      .select();
+    const earnings = await getPostEarningsDelegate().create({
+      data: stripUndefined(earningsData)
+    });
 
-    if (error) throw error;
-    return data[0];
+    return normalizeRecord(earnings);
   } catch (error) {
     throw new Error(`Error creating post earnings: ${error.message}`);
   }
@@ -22,13 +30,11 @@ const createPostEarnings = async (earningsData) => {
 // Get CM earnings for post
 const getPostEarnings = async (postId) => {
   try {
-    const { data, error } = await getDB()
-      .from('cm_earnings_post')
-      .select('*')
-      .eq('post_id', postId);
+    const earnings = await getPostEarningsDelegate().findMany({
+      where: { post_id: postId }
+    });
 
-    if (error) throw error;
-    return data;
+    return normalizeRecords(earnings);
   } catch (error) {
     throw new Error(`Error fetching post earnings: ${error.message}`);
   }
@@ -40,13 +46,11 @@ const createPageEarnings = async (earningsData) => {
     const { valid, errors } = validateData('cm_earnings_page', earningsData);
     if (!valid) throw new Error(`Validation failed: ${errors.join(', ')}`);
 
-    const { data, error } = await getDB()
-      .from('cm_earnings_page')
-      .insert([earningsData])
-      .select();
+    const earnings = await getPageEarningsDelegate().create({
+      data: stripUndefined(earningsData)
+    });
 
-    if (error) throw error;
-    return data[0];
+    return normalizeRecord(earnings);
   } catch (error) {
     throw new Error(`Error creating page earnings: ${error.message}`);
   }
@@ -55,14 +59,12 @@ const createPageEarnings = async (earningsData) => {
 // Get CM earnings for page
 const getPageEarnings = async (pageId) => {
   try {
-    const { data, error } = await getDB()
-      .from('cm_earnings_page')
-      .select('*')
-      .eq('page_id', pageId)
-      .order('end_time', { ascending: false });
+    const earnings = await getPageEarningsDelegate().findMany({
+      where: { page_id: pageId },
+      orderBy: { end_time: 'desc' }
+    });
 
-    if (error) throw error;
-    return data;
+    return normalizeRecords(earnings);
   } catch (error) {
     throw new Error(`Error fetching page earnings: ${error.message}`);
   }
@@ -74,13 +76,18 @@ const upsertPostEarnings = async (earningsData) => {
     const { valid, errors } = validateData('cm_earnings_post', earningsData);
     if (!valid) throw new Error(`Validation failed: ${errors.join(', ')}`);
 
-    const { data, error } = await getDB()
-      .from('cm_earnings_post')
-      .upsert(earningsData, { onConflict: 'post_id,period,end_time' })
-      .select();
+    const earnings = await upsertByLookup({
+      delegate: getPostEarningsDelegate(),
+      where: buildWhere({
+        post_id: earningsData.post_id,
+        period: earningsData.period,
+        end_time: earningsData.end_time
+      }),
+      create: earningsData,
+      update: earningsData
+    });
 
-    if (error) throw error;
-    return data[0];
+    return normalizeRecord(earnings);
   } catch (error) {
     throw new Error(`Error upserting post earnings: ${error.message}`);
   }
@@ -92,22 +99,27 @@ const upsertPageEarnings = async (earningsData) => {
     const { valid, errors } = validateData('cm_earnings_page', earningsData);
     if (!valid) throw new Error(`Validation failed: ${errors.join(', ')}`);
 
-    const { data, error } = await getDB()
-      .from('cm_earnings_page')
-      .upsert(earningsData, { onConflict: 'page_id,period,end_time' })
-      .select();
+    const earnings = await upsertByLookup({
+      delegate: getPageEarningsDelegate(),
+      where: buildWhere({
+        page_id: earningsData.page_id,
+        period: earningsData.period,
+        end_time: earningsData.end_time
+      }),
+      create: earningsData,
+      update: earningsData
+    });
 
-    if (error) throw error;
-    return data[0];
+    return normalizeRecord(earnings);
   } catch (error) {
     throw new Error(`Error upserting page earnings: ${error.message}`);
   }
 };
 
-module.exports = { 
-  createPostEarnings, 
-  getPostEarnings, 
-  createPageEarnings, 
+module.exports = {
+  createPostEarnings,
+  getPostEarnings,
+  createPageEarnings,
   getPageEarnings,
   upsertPostEarnings,
   upsertPageEarnings

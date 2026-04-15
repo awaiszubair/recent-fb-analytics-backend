@@ -36,8 +36,8 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Health check route
 app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
+  res.status(200).json({
+    status: 'OK',
     timestamp: new Date(),
     environment: process.env.NODE_ENV
   });
@@ -48,6 +48,8 @@ const insightsRoutes = require('./routes/insights.routes');
 const partnerRoutes = require('./routes/partner.routes');
 const pageRoutes = require('./routes/page.routes');
 const postRoutes = require('./routes/post.routes');
+const saveFacebookDataRoutes = require('./routes/saveFacebookData.routes');
+const auth = require('./middleware/auth');
 
 // API Prefix
 const API_PREFIX = process.env.API_PREFIX || '/api/v1';
@@ -57,6 +59,7 @@ app.use(`${API_PREFIX}/insights`, insightsRoutes);
 app.use(`${API_PREFIX}/partners`, partnerRoutes);
 app.use(`${API_PREFIX}/pages`, pageRoutes);
 app.use(`${API_PREFIX}/posts`, postRoutes);
+app.use(`${API_PREFIX}/facebook/connect`, auth, saveFacebookDataRoutes);
 
 // ============================================
 // 404 Handler
@@ -76,10 +79,10 @@ app.use((req, res) => {
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  
+
   const status = err.status || err.statusCode || 500;
   const message = err.message || 'Internal Server Error';
-  
+
   res.status(status).json({
     success: false,
     message,

@@ -1,4 +1,4 @@
-const PageModel = require('../models/ConnectedPage');
+const PageModel = require('../repositories/ConnectedPage');
 
 // Create a new page
 const createConnectedPage = async (pageData) => {

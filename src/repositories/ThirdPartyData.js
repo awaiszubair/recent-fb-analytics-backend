@@ -1,5 +1,12 @@
 const { getDB } = require('../config/database');
 const { validateData } = require('../utils/schema');
+const {
+  normalizeRecord,
+  normalizeRecords,
+  stripUndefined
+} = require('../utils/prismaHelpers');
+
+const getThirdPartyDataDelegate = () => getDB().thirdPartyData;
 
 /**
  * Create third-party data record
@@ -11,13 +18,11 @@ const createThirdPartyData = async (data) => {
     const { valid, errors } = validateData('third_party_data', data);
     if (!valid) throw new Error(`Validation failed: ${errors.join(', ')}`);
 
-    const { data: result, error } = await getDB()
-      .from('third_party_data')
-      .insert([data])
-      .select();
+    const record = await getThirdPartyDataDelegate().create({
+      data: stripUndefined(data)
+    });
 
-    if (error) throw error;
-    return result[0];
+    return normalizeRecord(record);
   } catch (error) {
     throw new Error(`Error creating third-party data: ${error.message}`);
   }
@@ -30,14 +35,12 @@ const createThirdPartyData = async (data) => {
  */
 const getPageThirdPartyData = async (pageId) => {
   try {
-    const { data, error } = await getDB()
-      .from('third_party_data')
-      .select('*')
-      .eq('page_id', pageId)
-      .order('synced_at', { ascending: false });
+    const data = await getThirdPartyDataDelegate().findMany({
+      where: { page_id: pageId },
+      orderBy: { synced_at: 'desc' }
+    });
 
-    if (error) throw error;
-    return data;
+    return normalizeRecords(data);
   } catch (error) {
     throw new Error(`Error fetching third-party data for page: ${error.message}`);
   }
@@ -50,13 +53,11 @@ const getPageThirdPartyData = async (pageId) => {
  */
 const getPostThirdPartyData = async (postId) => {
   try {
-    const { data, error } = await getDB()
-      .from('third_party_data')
-      .select('*')
-      .eq('post_id', postId);
+    const data = await getThirdPartyDataDelegate().findMany({
+      where: { post_id: postId }
+    });
 
-    if (error) throw error;
-    return data;
+    return normalizeRecords(data);
   } catch (error) {
     throw new Error(`Error fetching third-party data for post: ${error.message}`);
   }

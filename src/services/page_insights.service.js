@@ -1,4 +1,4 @@
-const PageInsightsModel = require('../models/PageInsights');
+const PageInsightsModel = require('../repositories/PageInsights');
 
 // Create page insight
 const createPageInsight = async (insightData) => {

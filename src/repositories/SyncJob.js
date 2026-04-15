@@ -1,5 +1,12 @@
 const { getDB } = require('../config/database');
 const { validateData } = require('../utils/schema');
+const {
+  normalizeRecord,
+  normalizeRecords,
+  stripUndefined
+} = require('../utils/prismaHelpers');
+
+const getSyncJobDelegate = () => getDB().syncJob;
 
 /**
  * Create a new sync job record
@@ -11,17 +18,14 @@ const createSyncJob = async (jobData) => {
     const { valid, errors } = validateData('sync_jobs', jobData);
     if (!valid) throw new Error(`Validation failed: ${errors.join(', ')}`);
 
-    const { data, error } = await getDB()
-      .from('sync_jobs')
-      .insert([{
+    const job = await getSyncJobDelegate().create({
+      data: stripUndefined({
         ...jobData,
-        status: jobData.status || 'pending',
-        created_at: new Date()
-      }])
-      .select();
+        status: jobData.status || 'pending'
+      })
+    });
 
-    if (error) throw error;
-    return data[0];
+    return normalizeRecord(job);
   } catch (error) {
     throw new Error(`Error creating sync job: ${error.message}`);
   }
@@ -34,14 +38,12 @@ const createSyncJob = async (jobData) => {
  */
 const getPageSyncJobs = async (pageId) => {
   try {
-    const { data, error } = await getDB()
-      .from('sync_jobs')
-      .select('*')
-      .eq('page_id', pageId)
-      .order('created_at', { ascending: false });
+    const jobs = await getSyncJobDelegate().findMany({
+      where: { page_id: pageId },
+      orderBy: { created_at: 'desc' }
+    });
 
-    if (error) throw error;
-    return data;
+    return normalizeRecords(jobs);
   } catch (error) {
     throw new Error(`Error fetching sync jobs: ${error.message}`);
   }
@@ -55,14 +57,22 @@ const getPageSyncJobs = async (pageId) => {
  */
 const updateSyncJob = async (jobId, updates) => {
   try {
-    const { data, error } = await getDB()
-      .from('sync_jobs')
-      .update(updates)
-      .eq('id', jobId)
-      .select();
+    const cleanedUpdates = stripUndefined(updates);
 
-    if (error) throw error;
-    return data[0];
+    if (Object.keys(cleanedUpdates).length === 0) {
+      const existing = await getSyncJobDelegate().findUnique({
+        where: { id: jobId }
+      });
+
+      return normalizeRecord(existing);
+    }
+
+    const job = await getSyncJobDelegate().update({
+      where: { id: jobId },
+      data: cleanedUpdates
+    });
+
+    return normalizeRecord(job);
   } catch (error) {
     throw new Error(`Error updating sync job: ${error.message}`);
   }
@@ -76,16 +86,16 @@ const updateSyncJob = async (jobId, updates) => {
  */
 const getRecentJobsByType = async (pageId, jobType) => {
   try {
-    const { data, error } = await getDB()
-      .from('sync_jobs')
-      .select('*')
-      .eq('page_id', pageId)
-      .eq('job_type', jobType)
-      .order('created_at', { ascending: false })
-      .limit(5);
+    const jobs = await getSyncJobDelegate().findMany({
+      where: {
+        page_id: pageId,
+        job_type: jobType
+      },
+      orderBy: { created_at: 'desc' },
+      take: 5
+    });
 
-    if (error) throw error;
-    return data;
+    return normalizeRecords(jobs);
   } catch (error) {
     throw new Error(`Error fetching recent jobs: ${error.message}`);
   }

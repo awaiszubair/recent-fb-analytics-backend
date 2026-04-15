@@ -1,4 +1,4 @@
-const PartnerModel = require('../models/Partner');
+const PartnerModel = require('../repositories/Partner');
 
 // Create a new partner
 const createPartner = async (partnerData) => {

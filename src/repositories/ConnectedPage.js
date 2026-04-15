@@ -1,5 +1,14 @@
 const { getDB } = require('../config/database');
 const { validateData } = require('../utils/schema');
+const {
+  buildWhere,
+  normalizeRecord,
+  normalizeRecords,
+  stripUndefined,
+  upsertByLookup
+} = require('../utils/prismaHelpers');
+
+const getPageDelegate = () => getDB().connectedPage;
 
 // Create connected page
 const createPage = async (pageData) => {
@@ -7,13 +16,11 @@ const createPage = async (pageData) => {
     const { valid, errors } = validateData('connected_pages', pageData);
     if (!valid) throw new Error(`Validation failed: ${errors.join(', ')}`);
 
-    const { data, error } = await getDB()
-      .from('connected_pages')
-      .insert([pageData])
-      .select();
+    const page = await getPageDelegate().create({
+      data: stripUndefined(pageData)
+    });
 
-    if (error) throw error;
-    return data[0];
+    return normalizeRecord(page);
   } catch (error) {
     throw new Error(`Error creating page: ${error.message}`);
   }
@@ -22,14 +29,11 @@ const createPage = async (pageData) => {
 // Get page by ID
 const getPageById = async (pageId) => {
   try {
-    const { data, error } = await getDB()
-      .from('connected_pages')
-      .select('*')
-      .eq('id', pageId)
-      .single();
+    const page = await getPageDelegate().findUnique({
+      where: { id: pageId }
+    });
 
-    if (error && error.code !== 'PGRST116') throw error;
-    return data;
+    return normalizeRecord(page);
   } catch (error) {
     throw new Error(`Error fetching page: ${error.message}`);
   }
@@ -38,13 +42,11 @@ const getPageById = async (pageId) => {
 // Get all pages for partner
 const getPartnerPages = async (partnerId) => {
   try {
-    const { data, error } = await getDB()
-      .from('connected_pages')
-      .select('*')
-      .eq('partner_id', partnerId);
+    const pages = await getPageDelegate().findMany({
+      where: { partner_id: partnerId }
+    });
 
-    if (error) throw error;
-    return data;
+    return normalizeRecords(pages);
   } catch (error) {
     throw new Error(`Error fetching pages: ${error.message}`);
   }
@@ -53,14 +55,18 @@ const getPartnerPages = async (partnerId) => {
 // Update page
 const updatePage = async (pageId, updates) => {
   try {
-    const { data, error } = await getDB()
-      .from('connected_pages')
-      .update(updates)
-      .eq('id', pageId)
-      .select();
+    const cleanedUpdates = stripUndefined(updates);
 
-    if (error) throw error;
-    return data[0];
+    if (Object.keys(cleanedUpdates).length === 0) {
+      return getPageById(pageId);
+    }
+
+    const page = await getPageDelegate().update({
+      where: { id: pageId },
+      data: cleanedUpdates
+    });
+
+    return normalizeRecord(page);
   } catch (error) {
     throw new Error(`Error updating page: ${error.message}`);
   }
@@ -72,13 +78,17 @@ const upsertPage = async (pageData) => {
     const { valid, errors } = validateData('connected_pages', pageData);
     if (!valid) throw new Error(`Validation failed: ${errors.join(', ')}`);
 
-    const { data, error } = await getDB()
-      .from('connected_pages')
-      .upsert(pageData, { onConflict: 'partner_id,fb_page_id' })
-      .select();
+    const page = await upsertByLookup({
+      delegate: getPageDelegate(),
+      where: buildWhere({
+        partner_id: pageData.partner_id,
+        fb_page_id: pageData.fb_page_id
+      }),
+      create: pageData,
+      update: pageData
+    });
 
-    if (error) throw error;
-    return data[0];
+    return normalizeRecord(page);
   } catch (error) {
     throw new Error(`Error upserting page: ${error.message}`);
   }

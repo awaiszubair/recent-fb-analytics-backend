@@ -204,6 +204,80 @@ class InsightsService {
     }
   }
 
+  async getUserPages(options = {}) {
+    try {
+      const { access_token } = options;
+
+      if (!access_token) {
+        throw new Error('Access token is required');
+      }
+
+      const params = {
+        access_token,
+      };
+
+      const response = await axios.get(
+        `${GRAPH_API_BASE_URL}/me/accounts`,
+        { params, timeout: 30000 }
+      );
+
+      return {
+        success: true,
+        data: response.data.data,
+      };
+    } catch (error) {
+      const apiMessage =
+        error.response && error.response.data
+          ? (error.response.data.error && error.response.data.error.message) || JSON.stringify(error.response.data)
+          : error.message;
+      throw new Error(`Failed to fetch user pages: ${apiMessage}`);
+    }
+  }
+
+  async getPagePosts(pageId, options = {}) {
+    try {
+      const { access_token, limit = 10, fetchAll = false } = options;
+
+      if (!access_token) {
+        throw new Error('Access token is required');
+      }
+
+      let allPosts = [];
+      let nextUrl = `${GRAPH_API_BASE_URL}/${pageId}/posts`;
+      
+      const params = {
+        access_token,
+        limit,
+        fields: 'id,message,created_time,permalink_url,status_type'
+      };
+
+      // Perform initial request
+      let response = await axios.get(nextUrl, { params, timeout: 30000 });
+      allPosts = allPosts.concat(response.data.data || []);
+
+      // If fetchAll is true, follow pagination links
+      if (fetchAll) {
+        let paging = response.data.paging;
+        while (paging && paging.next) {
+          console.log(`[InsightsService] Fetching next page of posts for ${pageId}...`);
+          response = await axios.get(paging.next, { timeout: 30000 });
+          allPosts = allPosts.concat(response.data.data || []);
+          paging = response.data.paging;
+        }
+      }
+
+      return {
+        success: true,
+        data: allPosts,
+      };
+    } catch (error) {
+      const apiMessage =
+        error.response && error.response.data
+          ? (error.response.data.error && error.response.data.error.message) || JSON.stringify(error.response.data)
+          : error.message;
+      throw new Error(`Failed to fetch page posts: ${apiMessage}`);
+    }
+  }
   
   async sendBatchRequest(requests, access_token) {
     try {

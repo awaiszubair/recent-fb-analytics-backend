@@ -1,5 +1,14 @@
 const { getDB } = require('../config/database');
 const { validateData } = require('../utils/schema');
+const {
+  buildWhere,
+  normalizeRecord,
+  normalizeRecords,
+  stripUndefined,
+  upsertByLookup
+} = require('../utils/prismaHelpers');
+
+const getPartnerDelegate = () => getDB().partner;
 
 // Create a new partner
 const createPartner = async (partnerData) => {
@@ -7,13 +16,11 @@ const createPartner = async (partnerData) => {
     const { valid, errors } = validateData('partners', partnerData);
     if (!valid) throw new Error(`Validation failed: ${errors.join(', ')}`);
 
-    const { data, error } = await getDB()
-      .from('partners')
-      .insert([partnerData])
-      .select();
+    const partner = await getPartnerDelegate().create({
+      data: stripUndefined(partnerData)
+    });
 
-    if (error) throw error;
-    return data[0];
+    return normalizeRecord(partner);
   } catch (error) {
     throw new Error(`Error creating partner: ${error.message}`);
   }
@@ -22,14 +29,11 @@ const createPartner = async (partnerData) => {
 // Get partner by user_id
 const getPartnerByUserId = async (userId) => {
   try {
-    const { data, error } = await getDB()
-      .from('partners')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+    const partner = await getPartnerDelegate().findUnique({
+      where: { user_id: userId }
+    });
 
-    if (error && error.code !== 'PGRST116') throw error;
-    return data;
+    return normalizeRecord(partner);
   } catch (error) {
     throw new Error(`Error fetching partner: ${error.message}`);
   }
@@ -38,14 +42,11 @@ const getPartnerByUserId = async (userId) => {
 // Get partner by ID
 const getPartnerById = async (partnerId) => {
   try {
-    const { data, error } = await getDB()
-      .from('partners')
-      .select('*')
-      .eq('id', partnerId)
-      .single();
+    const partner = await getPartnerDelegate().findUnique({
+      where: { id: partnerId }
+    });
 
-    if (error && error.code !== 'PGRST116') throw error;
-    return data;
+    return normalizeRecord(partner);
   } catch (error) {
     throw new Error(`Error fetching partner: ${error.message}`);
   }
@@ -54,12 +55,8 @@ const getPartnerById = async (partnerId) => {
 // Get all partners
 const getAllPartners = async () => {
   try {
-    const { data, error } = await getDB()
-      .from('partners')
-      .select('*');
-
-    if (error) throw error;
-    return data;
+    const partners = await getPartnerDelegate().findMany();
+    return normalizeRecords(partners);
   } catch (error) {
     throw new Error(`Error fetching partners: ${error.message}`);
   }
@@ -68,14 +65,18 @@ const getAllPartners = async () => {
 // Update partner
 const updatePartner = async (partnerId, updates) => {
   try {
-    const { data, error } = await getDB()
-      .from('partners')
-      .update(updates)
-      .eq('id', partnerId)
-      .select();
+    const cleanedUpdates = stripUndefined(updates);
 
-    if (error) throw error;
-    return data[0];
+    if (Object.keys(cleanedUpdates).length === 0) {
+      return getPartnerById(partnerId);
+    }
+
+    const partner = await getPartnerDelegate().update({
+      where: { id: partnerId },
+      data: cleanedUpdates
+    });
+
+    return normalizeRecord(partner);
   } catch (error) {
     throw new Error(`Error updating partner: ${error.message}`);
   }
@@ -87,23 +88,24 @@ const upsertPartner = async (partnerData) => {
     const { valid, errors } = validateData('partners', partnerData);
     if (!valid) throw new Error(`Validation failed: ${errors.join(', ')}`);
 
-    const { data, error } = await getDB()
-      .from('partners')
-      .upsert(partnerData, { onConflict: 'user_id' })
-      .select();
+    const partner = await upsertByLookup({
+      delegate: getPartnerDelegate(),
+      where: buildWhere({ user_id: partnerData.user_id }),
+      create: partnerData,
+      update: partnerData
+    });
 
-    if (error) throw error;
-    return data[0];
+    return normalizeRecord(partner);
   } catch (error) {
     throw new Error(`Error upserting partner: ${error.message}`);
   }
 };
 
-module.exports = { 
-  createPartner, 
-  getPartnerByUserId, 
-  getPartnerById, 
-  getAllPartners, 
-  updatePartner, 
-  upsertPartner 
+module.exports = {
+  createPartner,
+  getPartnerByUserId,
+  getPartnerById,
+  getAllPartners,
+  updatePartner,
+  upsertPartner
 };

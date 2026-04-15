@@ -1,7 +1,7 @@
 /**
  * Database Seeding Helper
  * Simple utility to insert data into database with schema validation
- * 
+ *
  * Usage Example:
  * const seedHelper = require('./seed');
  * const partner = await seedHelper.insertPartner({
@@ -13,6 +13,11 @@
 
 const { getDB } = require('../config/database');
 const { validateData } = require('./schema');
+const {
+  getTableDelegate,
+  normalizeRecord,
+  stripUndefined
+} = require('./prismaHelpers');
 
 /**
  * Generic insert function with validation
@@ -28,16 +33,15 @@ const insert = async (tableName, data) => {
       throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
     }
 
-    const { data: insertedData, error } = await getDB()
-      .from(tableName)
-      .insert([data])
-      .select();
+    const delegate = getTableDelegate(getDB(), tableName);
+    const insertedData = await delegate.create({
+      data: stripUndefined(data)
+    });
 
-    if (error) throw error;
-    console.log(`✅ Record inserted into ${tableName}`);
-    return insertedData[0];
+    console.log(`Record inserted into ${tableName}`);
+    return normalizeRecord(insertedData);
   } catch (error) {
-    console.error(`❌ Error inserting into ${tableName}:`, error.message);
+    console.error(`Error inserting into ${tableName}:`, error.message);
     throw error;
   }
 };
@@ -67,7 +71,7 @@ const seedHelper = {
       fb_page_id: data.fb_page_id,
       page_name: data.page_name || null,
       page_token_encrypted: data.page_token_encrypted || null,
-      fan_count: data.fan_count || 0,
+      fan_count: data.fan_count ?? 0,
       is_active: data.is_active !== false,
       last_synced_at: data.last_synced_at || null
     });
@@ -135,6 +139,7 @@ const seedHelper = {
       page_id: data.page_id,
       earnings_amount: data.earnings_amount || 0,
       approximate_earnings: data.approximate_earnings || 0,
+      content_type_breakdown: data.content_type_breakdown || null,
       currency: data.currency || 'USD',
       period: data.period || null,
       end_time: data.end_time || null

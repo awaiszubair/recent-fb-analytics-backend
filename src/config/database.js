@@ -1,29 +1,50 @@
-const { createClient } = require('@supabase/supabase-js');
+const { prismaClientClass } = require('./prismaClient');
 
-let supabase = null;
+let prisma = null;
+
+const createPrismaClient = () => {
+  const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+
+  if (!databaseUrl) {
+    throw new Error('Missing DATABASE_URL in environment');
+  }
+
+  return new prismaClientClass({
+    datasources: {
+      db: {
+        url: databaseUrl
+      }
+    }
+  });
+};
 
 const connectDB = async () => {
   try {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Missing SUPABASE_URL or SUPABASE_KEY in environment');
+    if (!prisma) {
+      prisma = createPrismaClient();
     }
 
-    supabase = createClient(supabaseUrl, supabaseKey);
-    console.log('✅ Supabase connected successfully');
+    await prisma.$connect();
+    console.log('Prisma PostgreSQL connected successfully');
   } catch (error) {
-    console.error('❌ Supabase connection failed:', error.message);
+    console.error('Prisma PostgreSQL connection failed:', error.message);
     process.exit(1);
   }
 };
 
 const getDB = () => {
-  if (!supabase) {
+  if (!prisma) {
     throw new Error('Database not initialized. Call connectDB() first.');
   }
-  return supabase;
+
+  return prisma;
 };
 
-module.exports = { connectDB, getDB };
+const disconnectDB = async () => {
+  if (prisma) {
+    await prisma.$disconnect();
+    prisma = null;
+  }
+};
+
+module.exports = { connectDB, getDB, disconnectDB };

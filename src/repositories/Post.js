@@ -1,5 +1,14 @@
 const { getDB } = require('../config/database');
 const { validateData } = require('../utils/schema');
+const {
+  buildWhere,
+  normalizeRecord,
+  normalizeRecords,
+  stripUndefined,
+  upsertByLookup
+} = require('../utils/prismaHelpers');
+
+const getPostDelegate = () => getDB().post;
 
 // Create post
 const createPost = async (postData) => {
@@ -7,13 +16,11 @@ const createPost = async (postData) => {
     const { valid, errors } = validateData('posts', postData);
     if (!valid) throw new Error(`Validation failed: ${errors.join(', ')}`);
 
-    const { data, error } = await getDB()
-      .from('posts')
-      .insert([postData])
-      .select();
+    const post = await getPostDelegate().create({
+      data: stripUndefined(postData)
+    });
 
-    if (error) throw error;
-    return data[0];
+    return normalizeRecord(post);
   } catch (error) {
     throw new Error(`Error creating post: ${error.message}`);
   }
@@ -22,14 +29,11 @@ const createPost = async (postData) => {
 // Get post by ID
 const getPostById = async (postId) => {
   try {
-    const { data, error } = await getDB()
-      .from('posts')
-      .select('*')
-      .eq('id', postId)
-      .single();
+    const post = await getPostDelegate().findUnique({
+      where: { id: postId }
+    });
 
-    if (error && error.code !== 'PGRST116') throw error;
-    return data;
+    return normalizeRecord(post);
   } catch (error) {
     throw new Error(`Error fetching post: ${error.message}`);
   }
@@ -38,14 +42,12 @@ const getPostById = async (postId) => {
 // Get all posts for a page
 const getPagePosts = async (pageId) => {
   try {
-    const { data, error } = await getDB()
-      .from('posts')
-      .select('*')
-      .eq('page_id', pageId)
-      .order('created_time', { ascending: false });
+    const posts = await getPostDelegate().findMany({
+      where: { page_id: pageId },
+      orderBy: { created_time: 'desc' }
+    });
 
-    if (error) throw error;
-    return data;
+    return normalizeRecords(posts);
   } catch (error) {
     throw new Error(`Error fetching posts: ${error.message}`);
   }
@@ -54,14 +56,18 @@ const getPagePosts = async (pageId) => {
 // Update post
 const updatePost = async (postId, updates) => {
   try {
-    const { data, error } = await getDB()
-      .from('posts')
-      .update(updates)
-      .eq('id', postId)
-      .select();
+    const cleanedUpdates = stripUndefined(updates);
 
-    if (error) throw error;
-    return data[0];
+    if (Object.keys(cleanedUpdates).length === 0) {
+      return getPostById(postId);
+    }
+
+    const post = await getPostDelegate().update({
+      where: { id: postId },
+      data: cleanedUpdates
+    });
+
+    return normalizeRecord(post);
   } catch (error) {
     throw new Error(`Error updating post: ${error.message}`);
   }
@@ -73,13 +79,17 @@ const upsertPost = async (postData) => {
     const { valid, errors } = validateData('posts', postData);
     if (!valid) throw new Error(`Validation failed: ${errors.join(', ')}`);
 
-    const { data, error } = await getDB()
-      .from('posts')
-      .upsert(postData, { onConflict: 'page_id,fb_post_id' })
-      .select();
+    const post = await upsertByLookup({
+      delegate: getPostDelegate(),
+      where: buildWhere({
+        page_id: postData.page_id,
+        fb_post_id: postData.fb_post_id
+      }),
+      create: postData,
+      update: postData
+    });
 
-    if (error) throw error;
-    return data[0];
+    return normalizeRecord(post);
   } catch (error) {
     throw new Error(`Error upserting post: ${error.message}`);
   }

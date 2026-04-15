@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Partner {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @unique
+  name       String?
+  email      String?
+  company    String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("partners")
+}
+
+model ConnectedPage {
+  id                  String   @id @default(uuid()) @db.Uuid
+  partner_id          String   @db.Uuid
+  fb_page_id          String
+  page_name           String?
+  page_token_encrypted String?
+  fan_count           BigInt   @default(0)
+  is_active           Boolean  @default(true)
+  last_synced_at      DateTime? @db.Timestamptz(6)
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([partner_id])
+  @@index([fb_page_id])
+  @@map("connected_pages")
+}
+
+model Post {
+  id            String   @id @default(uuid()) @db.Uuid
+  page_id       String   @db.Uuid
+  fb_post_id    String
+  message       String?
+  type          String?
+  permalink     String?
+  created_time  DateTime? @db.Timestamptz(6)
+  synced_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([page_id])
+  @@index([fb_post_id])
+  @@map("posts")
+}
+
+model PageInsight {
+  id            String   @id @default(uuid()) @db.Uuid
+  page_id       String   @db.Uuid
+  metric_name   String
+  metric_value  Json?
+  period        String?
+  end_time      DateTime? @db.Timestamptz(6)
+  synced_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([page_id])
+  @@index([page_id, metric_name])
+  @@index([page_id, metric_name, period, end_time])
+  @@index([end_time])
+  @@map("page_insights")
+}
+
+model PostInsight {
+  id            String   @id @default(uuid()) @db.Uuid
+  post_id       String   @db.Uuid
+  metric_name   String
+  metric_value  Json?
+  period        String?
+  end_time      DateTime? @db.Timestamptz(6)
+  synced_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([post_id])
+  @@index([post_id, metric_name])
+  @@index([post_id, metric_name, period, end_time])
+  @@index([end_time])
+  @@map("post_insights")
+}
+
+model CmEarningsPost {
+  id                   String   @id @default(uuid()) @db.Uuid
+  post_id              String   @db.Uuid
+  earnings_amount      Decimal  @default(0)
+  approximate_earnings Decimal  @default(0)
+  currency             String   @default("USD")
+  period               String?
+  end_time             DateTime? @db.Timestamptz(6)
+  synced_at            DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([post_id])
+  @@index([post_id, period, end_time])
+  @@map("cm_earnings_post")
+}
+
+model CmEarningsPage {
+  id                   String   @id @default(uuid()) @db.Uuid
+  page_id              String   @db.Uuid
+  earnings_amount      Decimal  @default(0)
+  approximate_earnings Decimal  @default(0)
+  content_type_breakdown Json?
+  currency             String   @default("USD")
+  period               String?
+  end_time             DateTime? @db.Timestamptz(6)
+  synced_at            DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([page_id])
+  @@index([page_id, period, end_time])
+  @@map("cm_earnings_page")
+}
+
+model ThirdPartyData {
+  id         String   @id @default(uuid()) @db.Uuid
+  page_id    String?  @db.Uuid
+  post_id    String?  @db.Uuid
+  data_type  String
+  value      Json?
+  synced_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([page_id])
+  @@index([post_id])
+  @@index([data_type])
+  @@map("third_party_data")
+}
+
+model SyncJob {
+  id           String   @id @default(uuid()) @db.Uuid
+  page_id      String   @db.Uuid
+  job_type     String
+  status       String   @default("pending")
+  started_at   DateTime? @db.Timestamptz(6)
+  completed_at DateTime? @db.Timestamptz(6)
+  error_log    String?
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([page_id])
+  @@index([page_id, job_type])
+  @@index([page_id, job_type, created_at])
+  @@map("sync_jobs")
+}

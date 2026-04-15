@@ -1,4 +1,4 @@
-const PostModel = require('../models/Post');
+const PostModel = require('../repositories/Post');
 
 // Create a new post
 const createPost = async (postData) => {
