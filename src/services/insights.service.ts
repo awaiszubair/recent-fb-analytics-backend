@@ -1,0 +1,414 @@
+import type { AxiosResponse } from "axios";
+import { BaseGraphClient } from "../core/base.graph-client";
+import { Environment } from "../config/environment";
+import { InsightsHelper } from "../utils/insights.helpers";
+import type {
+  FacebookBatchRequest,
+  FacebookBatchResponse,
+  FacebookInsightsResponse,
+  GraphBatchResult,
+} from "../types/facebook";
+import type { GraphQueryOptions } from "../types/domain";
+
+type InsightResponse = {
+  success: true;
+  pageId?: string;
+  postId?: string;
+  metrics?: string[];
+  period?: string;
+  data: FacebookInsightsResponse | unknown;
+};
+
+export class InsightsService extends BaseGraphClient {
+  async getPageInsights(pageId: string, metrics: string[], options: GraphQueryOptions = {}): Promise<InsightResponse> {
+    try {
+      const { access_token, period = "day", since, until } = options;
+
+      if (!access_token) throw new Error("Access token is required");
+      if (!pageId) throw new Error("Page ID is required");
+      if (!metrics || metrics.length === 0) throw new Error("At least one metric is required");
+
+      const params: Record<string, unknown> = {
+        access_token,
+        metric: metrics.join(","),
+        period,
+      };
+
+      if (since) params.since = since;
+      if (until) params.until = until;
+
+      const response = await this.http.get<FacebookInsightsResponse>(`/${pageId}/insights`, {
+        params,
+      });
+
+      return {
+        success: true,
+        pageId,
+        metrics,
+        period,
+        data: response.data,
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch page insights: ${this.extractMessage(error)}`);
+    }
+  }
+
+  async getPostInsights(postId: string, metrics: string[], options: GraphQueryOptions = {}): Promise<InsightResponse> {
+    try {
+      const { access_token } = options;
+
+      if (!access_token) throw new Error("Access token is required");
+      if (!postId) throw new Error("Post ID is required");
+      if (!metrics || metrics.length === 0) throw new Error("At least one metric is required");
+
+      const response = await this.http.get<FacebookInsightsResponse>(`/${postId}/insights`, {
+        params: {
+          access_token,
+          metric: metrics.join(","),
+        },
+      });
+
+      return {
+        success: true,
+        postId,
+        metrics,
+        data: response.data,
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch post insights: ${this.extractMessage(error)}`);
+    }
+  }
+
+  async getPostCommentsCount(postId: string, options: GraphQueryOptions = {}): Promise<{ success: true; postId: string; metric: string; data: unknown }> {
+    try {
+      const { access_token } = options;
+
+      if (!access_token) throw new Error("Access token is required");
+      if (!postId) throw new Error("Post ID is required");
+
+      const response = await this.http.get(`/${postId}`, {
+        params: {
+          access_token,
+          fields: "comments.summary(true)",
+        },
+      });
+
+      return {
+        success: true,
+        postId,
+        metric: "comments.summary.total_count",
+        data: response.data,
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch post comments count: ${this.extractMessage(error)}`);
+    }
+  }
+
+  async getPostSharesCount(postId: string, options: GraphQueryOptions = {}): Promise<{ success: true; postId: string; metric: string; data: unknown }> {
+    try {
+      const { access_token } = options;
+
+      if (!access_token) throw new Error("Access token is required");
+      if (!postId) throw new Error("Post ID is required");
+
+      const response = await this.http.get(`/${postId}`, {
+        params: {
+          access_token,
+          fields: "shares",
+        },
+      });
+
+      return {
+        success: true,
+        postId,
+        metric: "shares.count",
+        data: response.data,
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch post shares count: ${this.extractMessage(error)}`);
+    }
+  }
+
+  async getUserDetails(options: GraphQueryOptions = {}): Promise<{ success: true; data: unknown }> {
+    try {
+      const { access_token, fields = "id,name,email,picture" } = options;
+
+      if (!access_token) throw new Error("Access token is required");
+
+      const response = await this.http.get(`/${"me"}`, {
+        params: {
+          access_token,
+          fields,
+        },
+      });
+
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch user details: ${this.extractMessage(error)}`);
+    }
+  }
+
+  async getUserPages(options: GraphQueryOptions = {}): Promise<{ success: true; data: unknown[] }> {
+    try {
+      const { access_token } = options;
+
+      if (!access_token) throw new Error("Access token is required");
+
+      const response = await this.http.get(`/${"me/accounts"}`, {
+        params: { access_token },
+      });
+
+      return {
+        success: true,
+        data: Array.isArray(response.data?.data) ? response.data.data : [],
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch user pages: ${this.extractMessage(error)}`);
+    }
+  }
+
+  async getPagePosts(pageId: string, options: GraphQueryOptions = {}): Promise<{ success: true; data: unknown[] }> {
+    try {
+      const { access_token, limit = 10, fetchAll = false } = options;
+
+      if (!access_token) throw new Error("Access token is required");
+
+      let allPosts: unknown[] = [];
+      let nextUrl = `/${pageId}/posts`;
+
+      const params: Record<string, unknown> = {
+        access_token,
+        limit,
+        fields: "id,message,created_time,permalink_url,status_type",
+      };
+
+      let response = await this.http.get(nextUrl, { params });
+      allPosts = allPosts.concat(response.data?.data || []);
+
+      if (fetchAll) {
+        let paging = response.data?.paging;
+        while (paging && paging.next) {
+          response = await this.http.get(paging.next);
+          allPosts = allPosts.concat(response.data?.data || []);
+          paging = response.data?.paging;
+        }
+      }
+
+      return {
+        success: true,
+        data: allPosts,
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch page posts: ${this.extractMessage(error)}`);
+    }
+  }
+
+  async sendBatchRequest(requests: FacebookBatchRequest[], accessToken: string): Promise<FacebookBatchResponse[]> {
+    try {
+      const formData = new URLSearchParams();
+      formData.append("batch", JSON.stringify(requests));
+      formData.append("access_token", accessToken);
+
+      const response = await this.http.post<FacebookBatchResponse[]>("", formData, {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      throw new Error(`Batch request failed: ${this.extractMessage(error)}`);
+    }
+  }
+
+  private chunkArray<T>(array: T[], chunkSize = 50): T[][] {
+    const chunks: T[][] = [];
+    for (let index = 0; index < array.length; index += chunkSize) {
+      chunks.push(array.slice(index, index + chunkSize));
+    }
+    return chunks;
+  }
+
+  private parseBatchBody(body: string | Record<string, unknown> | undefined): unknown {
+    if (!body) {
+      return {};
+    }
+
+    if (typeof body === "string") {
+      try {
+        return JSON.parse(body);
+      } catch {
+        return { raw: body };
+      }
+    }
+
+    return body;
+  }
+
+  async getMultiplePageInsights(pageIds: string[], metrics: string[], options: GraphQueryOptions = {}): Promise<GraphBatchResult[]> {
+    try {
+      const { access_token, period = "day", since, until } = options;
+
+      if (!access_token) throw new Error("Access token is required");
+      if (!pageIds || pageIds.length === 0) throw new Error("At least one page ID is required");
+      if (!metrics || metrics.length === 0) throw new Error("At least one metric is required");
+
+      let queryString = `metric=${metrics.join(",")}&period=${period}`;
+      if (since) queryString += `&since=${since}`;
+      if (until) queryString += `&until=${until}`;
+
+      const pageIdChunks = this.chunkArray(pageIds, 50);
+      const allResults: GraphBatchResult[] = [];
+
+      for (const chunk of pageIdChunks) {
+        const batchRequests = chunk.map((pageId, index) => ({
+          method: "GET" as const,
+          relative_url: `${pageId}/insights?${queryString}`,
+          name: `page_${pageId}_${index}`,
+        }));
+
+        const batchResponses = await this.sendBatchRequest(batchRequests, access_token);
+
+        for (let index = 0; index < batchResponses.length; index += 1) {
+          const batchResponse = batchResponses[index];
+          const pageId = chunk[index];
+
+          if (batchResponse?.code && batchResponse.code !== 200) {
+            allResults.push({
+              success: false,
+              pageId,
+              error: this.parseBatchBody(batchResponse.body),
+            });
+          } else {
+            allResults.push({
+              success: true,
+              pageId,
+              metrics,
+              period,
+              data: this.parseBatchBody(batchResponse.body),
+            });
+          }
+        }
+      }
+
+      return allResults;
+    } catch (error) {
+      throw new Error(`Failed to fetch multiple page insights: ${this.extractMessage(error)}`);
+    }
+  }
+
+  async getMultiplePostInsights(postIds: string[], metrics: string[], options: GraphQueryOptions = {}): Promise<GraphBatchResult[]> {
+    try {
+      const { access_token } = options;
+
+      if (!access_token) throw new Error("Access token is required");
+      if (!postIds || postIds.length === 0) throw new Error("At least one post ID is required");
+      if (!metrics || metrics.length === 0) throw new Error("At least one metric is required");
+
+      const queryString = `metric=${metrics.join(",")}`;
+      const postIdChunks = this.chunkArray(postIds, 50);
+      const allResults: GraphBatchResult[] = [];
+
+      for (const chunk of postIdChunks) {
+        const batchRequests = chunk.map((postId, index) => ({
+          method: "GET" as const,
+          relative_url: `${postId}/insights?${queryString}`,
+          name: `post_${postId}_${index}`,
+        }));
+
+        const batchResponses = await this.sendBatchRequest(batchRequests, access_token);
+
+        for (let index = 0; index < batchResponses.length; index += 1) {
+          const batchResponse = batchResponses[index];
+          const postId = chunk[index];
+
+          if (batchResponse?.code && batchResponse.code !== 200) {
+            allResults.push({
+              success: false,
+              postId,
+              error: this.parseBatchBody(batchResponse.body),
+            });
+          } else {
+            allResults.push({
+              success: true,
+              postId,
+              metrics,
+              data: this.parseBatchBody(batchResponse.body),
+            });
+          }
+        }
+      }
+
+      return allResults;
+    } catch (error) {
+      throw new Error(`Failed to fetch multiple post insights: ${this.extractMessage(error)}`);
+    }
+  }
+
+  getAvailableMetrics(): Record<string, unknown> {
+    return {
+      pageMetrics: {
+        engagement: [
+          "page_total_actions",
+          "page_engaged_users",
+          "page_post_engagements",
+          "page_consumptions",
+          "page_fan_removes",
+          "page_fans",
+        ],
+        reach: [
+          "page_impressions",
+          "page_impressions_unique",
+          "page_reach",
+          "page_reach_by_location",
+          "page_reach_by_age_gender",
+        ],
+        monetization: [
+          "content_monetization_earnings",
+          "content_monetization_subscriptions",
+        ],
+        video: [
+          "post_video_avg_time_watched",
+          "post_video_complete_views_organic",
+          "post_video_complete_views_paid",
+          "post_video_complete_views_unique_organic",
+          "post_video_complete_views_unique_paid",
+        ],
+      },
+      postMetrics: {
+        engagement: [
+          "post_engaged_users",
+          "post_engagement",
+          "post_engagements",
+          "post_negative_feedback",
+          "post_negative_feedback_unique",
+          "post_negative_feedback_by_type",
+          "post_negative_feedback_by_type_unique",
+        ],
+        reach: [
+          "post_impressions",
+          "post_impressions_unique",
+          "post_impressions_organic",
+          "post_impressions_organic_unique",
+          "post_impressions_paid",
+          "post_impressions_paid_unique",
+        ],
+        actions: [
+          "post_clicks",
+          "post_clicks_by_type",
+          "post_video_views",
+          "post_video_views_organic",
+          "post_video_views_paid",
+          "post_video_views_autoplayed",
+          "post_video_views_click_to_play",
+          "post_video_views_unique",
+        ],
+      },
+    };
+  }
+}
+
+export default new InsightsService();
