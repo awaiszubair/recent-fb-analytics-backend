@@ -46,6 +46,18 @@ export interface FacebookInsightsResponse {
   };
 }
 
+export interface FacebookPostsResponse {
+  data: FacebookPost[];
+  paging?: {
+    next?: string;
+    previous?: string;
+    cursors?: {
+      before?: string;
+      after?: string;
+    };
+  };
+}
+
 export interface FacebookBatchRequest {
   method: "GET" | "POST" | "DELETE";
   relative_url: string;

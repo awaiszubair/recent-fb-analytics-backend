@@ -2,6 +2,15 @@ import { getDB } from "../config/database";
 import { BaseRepository } from "../core/base.repository";
 import type { AnyRecord, PageInsightCreateInput, PageInsightEntity } from "../types/domain";
 
+const toDate = (value?: string): Date | undefined => {
+  if (!value) {
+    return undefined;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+};
+
 export class PageInsightsRepository extends BaseRepository<PageInsightEntity> {
   protected readonly tableName = "page_insights";
 
@@ -13,30 +22,31 @@ export class PageInsightsRepository extends BaseRepository<PageInsightEntity> {
     return this.createRecord(insightData);
   }
 
-  getPageInsights(pageId: string, options: { since?: string; until?: string } = {}): Promise<PageInsightEntity[]> {
+  getPageInsights(fbPageId: string, options: { since?: string; until?: string } = {}): Promise<PageInsightEntity[]> {
     const endTimeFilter: AnyRecord = {
-      ...(options.since ? { gte: options.since } : {}),
-      ...(options.until ? { lte: options.until } : {}),
+      ...(toDate(options.since) ? { gte: toDate(options.since) } : {}),
+      ...(toDate(options.until) ? { lte: toDate(options.until) } : {}),
     };
 
     return this.findManyRecords({
       where: {
-        page_id: pageId,
+        page_id: fbPageId,
         ...(Object.keys(endTimeFilter).length > 0 ? { end_time: endTimeFilter } : {}),
       },
-      orderBy: [{ end_time: "desc" }, { synced_at: "desc" }],
+      // orderBy: [{ end_time: "desc" }, { synced_at: "desc" }],
+      orderBy: [{ metric_name: "asc" }, { end_time: "asc" }],
     });
   }
 
-  getPageMetrics(pageId: string, metricName: string, options: { since?: string; until?: string } = {}): Promise<PageInsightEntity[]> {
+  getPageMetrics(fbPageId: string, metricName: string, options: { since?: string; until?: string } = {}): Promise<PageInsightEntity[]> {
     const endTimeFilter: AnyRecord = {
-      ...(options.since ? { gte: options.since } : {}),
-      ...(options.until ? { lte: options.until } : {}),
+      ...(toDate(options.since) ? { gte: toDate(options.since) } : {}),
+      ...(toDate(options.until) ? { lte: toDate(options.until) } : {}),
     };
 
     return this.findManyRecords({
       where: {
-        page_id: pageId,
+        page_id: fbPageId,
         metric_name: metricName,
         ...(Object.keys(endTimeFilter).length > 0 ? { end_time: endTimeFilter } : {}),
       },

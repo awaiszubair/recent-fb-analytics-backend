@@ -2,6 +2,15 @@ import { getDB } from "../config/database";
 import { BaseRepository } from "../core/base.repository";
 import type { AnyRecord, PostInsightCreateInput, PostInsightEntity } from "../types/domain";
 
+const toDate = (value?: string): Date | undefined => {
+  if (!value) {
+    return undefined;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+};
+
 export class PostInsightsRepository extends BaseRepository<PostInsightEntity> {
   protected readonly tableName = "post_insights";
 
@@ -13,30 +22,30 @@ export class PostInsightsRepository extends BaseRepository<PostInsightEntity> {
     return this.createRecord(insightData);
   }
 
-  getPostInsights(postId: string, options: { since?: string; until?: string } = {}): Promise<PostInsightEntity[]> {
+  getPostInsights(fbPostId: string, options: { since?: string; until?: string } = {}): Promise<PostInsightEntity[]> {
     const endTimeFilter: AnyRecord = {
-      ...(options.since ? { gte: options.since } : {}),
-      ...(options.until ? { lte: options.until } : {}),
+      ...(toDate(options.since) ? { gte: toDate(options.since) } : {}),
+      ...(toDate(options.until) ? { lte: toDate(options.until) } : {}),
     };
 
     return this.findManyRecords({
       where: {
-        post_id: postId,
+        post_id: fbPostId,
         ...(Object.keys(endTimeFilter).length > 0 ? { end_time: endTimeFilter } : {}),
       },
       orderBy: [{ end_time: "desc" }, { synced_at: "desc" }],
     });
   }
 
-  getPostMetrics(postId: string, metricName: string, options: { since?: string; until?: string } = {}): Promise<PostInsightEntity[]> {
+  getPostMetrics(fbPostId: string, metricName: string, options: { since?: string; until?: string } = {}): Promise<PostInsightEntity[]> {
     const endTimeFilter: AnyRecord = {
-      ...(options.since ? { gte: options.since } : {}),
-      ...(options.until ? { lte: options.until } : {}),
+      ...(toDate(options.since) ? { gte: toDate(options.since) } : {}),
+      ...(toDate(options.until) ? { lte: toDate(options.until) } : {}),
     };
 
     return this.findManyRecords({
       where: {
-        post_id: postId,
+        post_id: fbPostId,
         metric_name: metricName,
         ...(Object.keys(endTimeFilter).length > 0 ? { end_time: endTimeFilter } : {}),
       },

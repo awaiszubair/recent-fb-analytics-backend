@@ -64,7 +64,7 @@ export class InsightsHelper {
 
   static isValidMetric(metric: string): boolean {
     const allMetrics = Object.values(this.METRICS).flat();
-    return allMetrics.includes(metric);
+    return (allMetrics as string[]).includes(metric);
   }
 
   static validateMetrics(metrics: string[]): { valid: string[]; invalid: string[] } {

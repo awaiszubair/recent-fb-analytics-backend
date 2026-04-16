@@ -20,6 +20,10 @@ export class Environment {
     return process.env.DATABASE_URL || process.env.POSTGRES_URL;
   }
 
+  static get redisUrl(): string | undefined {
+    return process.env.REDIS_URL || process.env.QUEUE_REDIS_URL;
+  }
+
   static get facebookGraphVersion(): string {
     return process.env.FACEBOOK_GRAPH_VERSION || "v25.0";
   }

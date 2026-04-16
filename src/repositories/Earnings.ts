@@ -24,17 +24,31 @@ export class EarningsRepository extends BaseRepository<unknown> {
     return this.postDelegate;
   }
 
+  private normalizeEarningsInput<T extends PageEarningsCreateInput | PostEarningsCreateInput>(earningsData: T): Record<string, unknown> {
+    const normalized = PrismaHelpers.stripUndefined(earningsData) as Record<string, unknown>;
+
+    if (typeof normalized.earnings_amount === "bigint") {
+      normalized.earnings_amount = normalized.earnings_amount.toString();
+    }
+
+    if (typeof normalized.approximate_earnings === "bigint") {
+      normalized.approximate_earnings = normalized.approximate_earnings.toString();
+    }
+
+    return normalized;
+  }
+
   async createPostEarnings(earningsData: PostEarningsCreateInput): Promise<CmEarningsPostEntity> {
-    const validation = validateData("cm_earnings_post", earningsData);
+    const validation = validateData("cm_earnings_post", earningsData as unknown as Record<string, unknown>);
     if (!validation.valid) {
       throw new Error(`Validation failed: ${validation.errors.join(", ")}`);
     }
 
     return PrismaHelpers.normalizeRecord(
       await this.postDelegate.create({
-        data: PrismaHelpers.stripUndefined(earningsData),
+        data: this.normalizeEarningsInput(earningsData) as never,
       })
-    ) as CmEarningsPostEntity;
+    ) as unknown as CmEarningsPostEntity;
   }
 
   async getPostEarnings(postId: string): Promise<CmEarningsPostEntity[]> {
@@ -42,20 +56,20 @@ export class EarningsRepository extends BaseRepository<unknown> {
       await this.postDelegate.findMany({
         where: { post_id: postId },
       })
-    ) as CmEarningsPostEntity[];
+    ) as unknown as CmEarningsPostEntity[];
   }
 
   async createPageEarnings(earningsData: PageEarningsCreateInput): Promise<CmEarningsPageEntity> {
-    const validation = validateData("cm_earnings_page", earningsData);
+    const validation = validateData("cm_earnings_page", earningsData as unknown as Record<string, unknown>);
     if (!validation.valid) {
       throw new Error(`Validation failed: ${validation.errors.join(", ")}`);
     }
 
     return PrismaHelpers.normalizeRecord(
       await this.pageDelegate.create({
-        data: PrismaHelpers.stripUndefined(earningsData),
+        data: this.normalizeEarningsInput(earningsData) as never,
       })
-    ) as CmEarningsPageEntity;
+    ) as unknown as CmEarningsPageEntity;
   }
 
   async getPageEarnings(pageId: string): Promise<CmEarningsPageEntity[]> {
@@ -64,7 +78,7 @@ export class EarningsRepository extends BaseRepository<unknown> {
         where: { page_id: pageId },
         orderBy: { end_time: "desc" },
       })
-    ) as CmEarningsPageEntity[];
+    ) as unknown as CmEarningsPageEntity[];
   }
 
   async upsertPostEarnings(earningsData: PostEarningsCreateInput): Promise<CmEarningsPostEntity> {
@@ -76,10 +90,10 @@ export class EarningsRepository extends BaseRepository<unknown> {
           period: earningsData.period,
           end_time: earningsData.end_time,
         }),
-        create: earningsData,
-        update: earningsData,
+        create: this.normalizeEarningsInput(earningsData),
+        update: this.normalizeEarningsInput(earningsData),
       })
-    ) as CmEarningsPostEntity;
+    ) as unknown as CmEarningsPostEntity;
   }
 
   async upsertPageEarnings(earningsData: PageEarningsCreateInput): Promise<CmEarningsPageEntity> {
@@ -91,10 +105,10 @@ export class EarningsRepository extends BaseRepository<unknown> {
           period: earningsData.period,
           end_time: earningsData.end_time,
         }),
-        create: earningsData,
-        update: earningsData,
+        create: this.normalizeEarningsInput(earningsData),
+        update: this.normalizeEarningsInput(earningsData),
       })
-    ) as CmEarningsPageEntity;
+    ) as unknown as CmEarningsPageEntity;
   }
 }
 

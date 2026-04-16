@@ -11,12 +11,12 @@ export class PostInsightsService extends BaseService {
     return postInsightsRepository.createPostInsight(insightData);
   }
 
-  getPostInsights(postId: string, options: { since?: string; until?: string } = {}): Promise<PostInsightEntity[]> {
-    return postInsightsRepository.getPostInsights(postId, options);
+  getPostInsights(fbPostId: string, options: { since?: string; until?: string } = {}): Promise<PostInsightEntity[]> {
+    return postInsightsRepository.getPostInsights(fbPostId, options);
   }
 
-  getPostMetrics(postId: string, metricName: string, options: { since?: string; until?: string } = {}): Promise<PostInsightEntity[]> {
-    return postInsightsRepository.getPostMetrics(postId, metricName, options);
+  getPostMetrics(fbPostId: string, metricName: string, options: { since?: string; until?: string } = {}): Promise<PostInsightEntity[]> {
+    return postInsightsRepository.getPostMetrics(fbPostId, metricName, options);
   }
 }
 

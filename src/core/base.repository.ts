@@ -14,18 +14,18 @@ export abstract class BaseRepository<TModel> {
   protected abstract readonly tableName: string;
   protected abstract get delegate(): PrismaDelegate<TModel>;
 
-  protected validate(data: AnyRecord): void {
-    const validation = SchemaRegistry.validateData(this.tableName, data);
+  protected validate(data: object): void {
+    const validation = SchemaRegistry.validateData(this.tableName, data as AnyRecord);
     if (!validation.valid) {
       throw new Error(`Validation failed: ${validation.errors.join(", ")}`);
     }
   }
 
-  protected async createRecord(data: AnyRecord): Promise<TModel> {
+  protected async createRecord<TData extends object>(data: TData): Promise<TModel> {
     this.validate(data);
     return PrismaHelpers.normalizeRecord(
       await this.delegate.create({
-        data: PrismaHelpers.stripUndefined(data),
+        data: PrismaHelpers.stripUndefined(data as AnyRecord),
       })
     ) as TModel;
   }
@@ -42,8 +42,8 @@ export abstract class BaseRepository<TModel> {
     return PrismaHelpers.normalizeRecords(await this.delegate.findMany(args)) as TModel[];
   }
 
-  protected async updateRecord(where: AnyRecord, updates: AnyRecord): Promise<TModel> {
-    const cleanedUpdates = PrismaHelpers.stripUndefined(updates);
+  protected async updateRecord<TUpdates extends object>(where: AnyRecord, updates: TUpdates): Promise<TModel> {
+    const cleanedUpdates = PrismaHelpers.stripUndefined(updates as AnyRecord);
 
     if (!cleanedUpdates || Object.keys(cleanedUpdates).length === 0) {
       const existing = await this.delegate.findFirst({ where });
@@ -58,13 +58,13 @@ export abstract class BaseRepository<TModel> {
     ) as TModel;
   }
 
-  protected async upsertByLookup(where: AnyRecord, create: AnyRecord, update: AnyRecord = create): Promise<TModel> {
+  protected async upsertByLookup<TCreate extends object, TUpdate extends object = TCreate>(where: AnyRecord, create: TCreate, update?: TUpdate): Promise<TModel> {
     return PrismaHelpers.normalizeRecord(
       await PrismaHelpers.upsertByLookup({
         delegate: this.delegate,
         where: PrismaHelpers.buildWhere(where),
-        create,
-        update,
+        create: create as AnyRecord,
+        update: (update ?? create) as AnyRecord,
       })
     ) as TModel;
   }

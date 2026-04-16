@@ -49,7 +49,7 @@ export class SchemaRegistry {
     page_insights: {
       required: ["page_id", "metric_name"],
       fields: {
-        page_id: { type: "uuid", required: true },
+        page_id: { type: "text", required: true },
         metric_name: { type: "text", required: true },
         metric_value: { type: "jsonb", required: false, default: null },
         period: { type: "text", required: false, default: null },
@@ -59,7 +59,7 @@ export class SchemaRegistry {
     post_insights: {
       required: ["post_id", "metric_name"],
       fields: {
-        post_id: { type: "uuid", required: true },
+        post_id: { type: "text", required: true },
         metric_name: { type: "text", required: true },
         metric_value: { type: "jsonb", required: false, default: null },
         period: { type: "text", required: false, default: null },

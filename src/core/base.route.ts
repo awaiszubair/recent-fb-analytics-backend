@@ -3,7 +3,7 @@ import { Router, type Router as ExpressRouter } from "express";
 export abstract class BaseRoute {
   protected readonly router: ExpressRouter;
 
-  protected constructor() {
+  public constructor() {
     this.router = Router();
     this.registerRoutes();
   }

@@ -6,6 +6,8 @@ import type {
   FacebookBatchRequest,
   FacebookBatchResponse,
   FacebookInsightsResponse,
+  FacebookPost,
+  FacebookPostsResponse,
   GraphBatchResult,
 } from "../types/facebook";
 import type { GraphQueryOptions } from "../types/domain";
@@ -20,6 +22,10 @@ type InsightResponse = {
 };
 
 export class InsightsService extends BaseGraphClient {
+  constructor() {
+    super();
+  }
+
   async getPageInsights(pageId: string, metrics: string[], options: GraphQueryOptions = {}): Promise<InsightResponse> {
     try {
       const { access_token, period = "day", since, until } = options;
@@ -55,23 +61,28 @@ export class InsightsService extends BaseGraphClient {
 
   async getPostInsights(postId: string, metrics: string[], options: GraphQueryOptions = {}): Promise<InsightResponse> {
     try {
-      const { access_token } = options;
+      const { access_token, period = "lifetime", since, until } = options;
 
       if (!access_token) throw new Error("Access token is required");
       if (!postId) throw new Error("Post ID is required");
       if (!metrics || metrics.length === 0) throw new Error("At least one metric is required");
 
-      const response = await this.http.get<FacebookInsightsResponse>(`/${postId}/insights`, {
-        params: {
-          access_token,
-          metric: metrics.join(","),
-        },
-      });
+      const params: Record<string, unknown> = {
+        access_token,
+        metric: metrics.join(","),
+        period,
+      };
+
+      if (since) params.since = since;
+      if (until) params.until = until;
+
+      const response = await this.http.get<FacebookInsightsResponse>(`/${postId}/insights`, { params });
 
       return {
         success: true,
         postId,
         metrics,
+        period,
         data: response.data,
       };
     } catch (error) {
@@ -170,36 +181,80 @@ export class InsightsService extends BaseGraphClient {
     }
   }
 
+  async getPagePostsPage(
+    pageId: string,
+    options: GraphQueryOptions = {}
+  ): Promise<{ success: true; data: FacebookPost[]; paging?: FacebookPostsResponse["paging"] }> {
+    try {
+      const { access_token, limit = 100, since, until, nextPageUrl, after, before } = options;
+
+      let response;
+
+      if (nextPageUrl) {
+        response = await this.http.get<FacebookPostsResponse>(nextPageUrl);
+      } else {
+        if (!access_token) throw new Error("Access token is required");
+
+        const params: Record<string, unknown> = {
+          access_token,
+          limit,
+          fields: "id,message,created_time,permalink_url,status_type",
+        };
+
+        if (since) params.since = since;
+        if (until) params.until = until;
+        if (after) params.after = after;
+        if (before) params.before = before;
+
+        response = await this.http.get<FacebookPostsResponse>(`/${pageId}/posts`, {
+          params,
+        });
+      }
+
+      return {
+        success: true,
+        data: Array.isArray(response.data?.data) ? response.data.data : [],
+        paging: response.data?.paging,
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch page posts: ${this.extractMessage(error)}`);
+    }
+  }
+
   async getPagePosts(pageId: string, options: GraphQueryOptions = {}): Promise<{ success: true; data: unknown[] }> {
     try {
       const { access_token, limit = 10, fetchAll = false } = options;
 
       if (!access_token) throw new Error("Access token is required");
 
-      let allPosts: unknown[] = [];
-      let nextUrl = `/${pageId}/posts`;
-
-      const params: Record<string, unknown> = {
+      const firstPage = await this.getPagePostsPage(pageId, {
+        ...options,
         access_token,
         limit,
-        fields: "id,message,created_time,permalink_url,status_type",
-      };
-
-      let response = await this.http.get(nextUrl, { params });
-      allPosts = allPosts.concat(response.data?.data || []);
+      });
 
       if (fetchAll) {
-        let paging = response.data?.paging;
+        let paging = firstPage.paging;
+        const allPosts: unknown[] = [...firstPage.data];
+
         while (paging && paging.next) {
-          response = await this.http.get(paging.next);
-          allPosts = allPosts.concat(response.data?.data || []);
-          paging = response.data?.paging;
+          const nextPage = await this.getPagePostsPage(pageId, {
+            ...options,
+            nextPageUrl: paging.next,
+          });
+          allPosts.push(...nextPage.data);
+          paging = nextPage.paging;
         }
+
+        return {
+          success: true,
+          data: allPosts,
+        };
       }
 
       return {
         success: true,
-        data: allPosts,
+        data: firstPage.data,
       };
     } catch (error) {
       throw new Error(`Failed to fetch page posts: ${this.extractMessage(error)}`);

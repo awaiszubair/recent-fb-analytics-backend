@@ -185,3 +185,16 @@ export interface SyncJobCreateInput {
   error_log?: string | null;
   created_at?: Date;
 }
+
+export interface GraphQueryOptions {
+  access_token?: string;
+  fields?: string;
+  period?: string;
+  since?: string;
+  until?: string;
+  limit?: number;
+  after?: string;
+  before?: string;
+  fetchAll?: boolean;
+  nextPageUrl?: string;
+}

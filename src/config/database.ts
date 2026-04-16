@@ -4,6 +4,7 @@ import { Environment } from "./environment";
 
 class DatabaseConnection {
   private prisma: PrismaClient | null = null;
+  private schemaAligned = false;
 
   private createClient(): PrismaClient {
     const databaseUrl = Environment.databaseUrl;
@@ -27,13 +28,14 @@ class DatabaseConnection {
     }
 
     await this.prisma.$connect();
+    await this.alignInsightIdColumns();
     console.log("Prisma PostgreSQL connected successfully");
     return this.prisma;
   }
 
   get client(): PrismaClient {
     if (!this.prisma) {
-      throw new Error("Database not initialized. Call connectDB() first.");
+      this.prisma = this.createClient();
     }
 
     return this.prisma;
@@ -43,7 +45,38 @@ class DatabaseConnection {
     if (this.prisma) {
       await this.prisma.$disconnect();
       this.prisma = null;
+      this.schemaAligned = false;
     }
+  }
+
+  private async alignInsightIdColumns(): Promise<void> {
+    if (!this.prisma || this.schemaAligned) {
+      return;
+    }
+
+    const pageInsightColumn = await this.prisma.$queryRawUnsafe<Array<{ data_type: string }>>(
+      "SELECT data_type FROM information_schema.columns WHERE table_name = 'page_insights' AND column_name = 'page_id' LIMIT 1"
+    );
+
+    if (pageInsightColumn[0]?.data_type === "uuid") {
+      await this.prisma.$executeRawUnsafe("ALTER TABLE page_insights ALTER COLUMN page_id TYPE TEXT USING page_id::TEXT");
+      await this.prisma.$executeRawUnsafe(
+        "UPDATE page_insights pi SET page_id = cp.fb_page_id FROM connected_pages cp WHERE pi.page_id = cp.id::TEXT"
+      );
+    }
+
+    const postInsightColumn = await this.prisma.$queryRawUnsafe<Array<{ data_type: string }>>(
+      "SELECT data_type FROM information_schema.columns WHERE table_name = 'post_insights' AND column_name = 'post_id' LIMIT 1"
+    );
+
+    if (postInsightColumn[0]?.data_type === "uuid") {
+      await this.prisma.$executeRawUnsafe("ALTER TABLE post_insights ALTER COLUMN post_id TYPE TEXT USING post_id::TEXT");
+      await this.prisma.$executeRawUnsafe(
+        "UPDATE post_insights poi SET post_id = p.fb_post_id FROM posts p WHERE poi.post_id = p.id::TEXT"
+      );
+    }
+
+    this.schemaAligned = true;
   }
 }
 
