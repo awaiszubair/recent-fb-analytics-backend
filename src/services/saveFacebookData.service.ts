@@ -9,6 +9,7 @@ import earningsRepository from "../repositories/Earnings";
 import syncJobRepository from "../repositories/SyncJob";
 import thirdPartyDataRepository from "../repositories/ThirdPartyData";
 import { facebookSyncQueue } from "../queues/facebookSync.queue";
+import { encryptPageToken } from "../utils/pageTokenCrypto";
 import type { GraphQueryOptions, PartnerCreateInput, PartnerEntity, PageEarningsCreateInput, PageInsightEntity, PageInsightCreateInput, PostEarningsCreateInput, PostInsightEntity, PostInsightCreateInput, PostEntity, SyncJobEntity, ThirdPartyDataCreateInput, ThirdPartyDataEntity, CmEarningsPageEntity, CmEarningsPostEntity, ConnectedPageEntity } from "../types/domain";
 import type { FacebookPage, FacebookPost } from "../types/facebook";
 import type { InitialConnectionSyncResult, PageSyncJobPayload, PageSyncJobResult, PostSyncJobPayload, PostSyncJobResult } from "../types/facebookSync";
@@ -272,7 +273,7 @@ export class SaveFacebookDataService extends BaseService {
       partner_id: pageData.partner_id,
       fb_page_id: pageData.fb_page_id,
       page_name: pageData.page_name || null,
-      page_token_encrypted: pageData.page_token_encrypted || null,
+      page_token_encrypted: pageData.page_token_encrypted ? encryptPageToken(pageData.page_token_encrypted) : null,
       fan_count: pageData.fan_count || 0,
       is_active: pageData.is_active !== false,
       last_synced_at: pageData.last_synced_at || new Date(),

@@ -17,6 +17,12 @@ export class PostRepository extends BaseRepository<PostEntity> {
     return this.findById(postId);
   }
 
+  getPostByFbPostId(fbPostId: string): Promise<PostEntity | null> {
+    return this.findManyRecords({
+      where: { fb_post_id: fbPostId },
+    }).then((posts) => posts[0] || null);
+  }
+
   getPagePosts(pageId: string): Promise<PostEntity[]> {
     return this.findManyRecords({
       where: { page_id: pageId },
@@ -28,12 +34,17 @@ export class PostRepository extends BaseRepository<PostEntity> {
     return this.updateRecord({ id: postId }, updates);
   }
 
-  upsertPost(postData: PostCreateInput): Promise<PostEntity> {
-    return this.upsertByLookup(
-      { page_id: postData.page_id, fb_post_id: postData.fb_post_id },
-      postData,
-      postData
-    );
+  async upsertPost(postData: PostCreateInput): Promise<PostEntity> {
+    return getDB().post.upsert({
+      where: {
+        page_id_fb_post_id: {
+          page_id: postData.page_id,
+          fb_post_id: postData.fb_post_id,
+        },
+      } as never,
+      create: postData,
+      update: postData,
+    });
   }
 }
 

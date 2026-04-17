@@ -8,7 +8,7 @@ export class PageService extends BaseService {
   }
 
   createConnectedPage(pageData: ConnectedPageCreateInput): Promise<ConnectedPageEntity> {
-    return connectedPageRepository.createPage(pageData);
+    return connectedPageRepository.upsertPage(pageData);
   }
 
   getPageById(pageId: string): Promise<ConnectedPageEntity | null> {

@@ -43,4 +43,8 @@ export class Environment {
   static get fbAppSecret(): string | undefined {
     return process.env.FB_APP_SECRET;
   }
+
+  static get pageTokenEncryptionSecret(): string | undefined {
+    return process.env.PAGE_TOKEN_ENCRYPTION_SECRET || process.env.TOKEN_ENCRYPTION_SECRET || process.env.FB_APP_SECRET;
+  }
 }

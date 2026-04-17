@@ -31,6 +31,7 @@ model ConnectedPage {
 
   @@index([partner_id])
   @@index([fb_page_id])
+  @@unique([partner_id, fb_page_id])
   @@map("connected_pages")
 }
 
@@ -46,6 +47,7 @@ model Post {
 
   @@index([page_id])
   @@index([fb_post_id])
+  @@unique([page_id, fb_post_id])
   @@map("posts")
 }
 
