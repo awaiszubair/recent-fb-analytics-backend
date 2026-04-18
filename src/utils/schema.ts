@@ -38,7 +38,7 @@ export class SchemaRegistry {
     posts: {
       required: ["page_id", "fb_post_id"],
       fields: {
-        page_id: { type: "uuid", required: true },
+        page_id: { type: "text", required: true },
         fb_post_id: { type: "text", required: true },
         message: { type: "text", required: false, default: null },
         type: { type: "text", required: false, default: null },

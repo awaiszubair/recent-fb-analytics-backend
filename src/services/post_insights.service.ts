@@ -127,7 +127,7 @@ export class PostInsightsService extends BaseService {
     }
 
     const post = await postRepository.getPostByFbPostId(fbPostId);
-    const connectedPage = post ? await connectedPageRepository.getPageById(post.page_id) : null;
+    const connectedPage = post ? await connectedPageRepository.getPageByFbPageId(post.page_id) : null;
     const accessToken = resolveStoredToken(connectedPage?.page_token_encrypted);
 
     if (!accessToken) {
@@ -177,7 +177,7 @@ export class PostInsightsService extends BaseService {
     }
 
     const post = await postRepository.getPostByFbPostId(fbPostId);
-    const connectedPage = post ? await connectedPageRepository.getPageById(post.page_id) : null;
+    const connectedPage = post ? await connectedPageRepository.getPageByFbPageId(post.page_id) : null;
     const accessToken = resolveStoredToken(connectedPage?.page_token_encrypted);
 
     if (!accessToken) {

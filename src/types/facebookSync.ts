@@ -34,7 +34,9 @@ export interface PostSyncJobPayload {
 }
 
 export interface PageSyncJobResult {
-  page: ConnectedPageEntity;
+  pageId: string;
+  fbPageId: string;
+  pageName?: string | null;
   postsSaved: number;
   postsQueued: number;
   pageInsightsSaved: number;

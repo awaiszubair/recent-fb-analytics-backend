@@ -37,7 +37,7 @@ model ConnectedPage {
 
 model Post {
   id            String   @id @default(uuid()) @db.Uuid
-  page_id       String   @db.Uuid
+  page_id       String
   fb_post_id    String
   message       String?
   type          String?

@@ -159,7 +159,7 @@ export class SaveFacebookDataService extends BaseService {
 
             for (const fbPost of chunk) {
               const syncedPost = await this.syncPost({
-                page_id: syncedPage.id,
+                page_id: fbPage.id,
                 fb_post_id: fbPost.id,
                 message: fbPost.message,
                 type: fbPost.status_type,
@@ -194,7 +194,9 @@ export class SaveFacebookDataService extends BaseService {
         console.log(`[facebook-sync] 📈 Page summary: ${postsSaved} posts saved, ${postsQueued} post insights queued.`);
 
         return {
-          page: syncedPage,
+          pageId: syncedPage.id,
+          fbPageId: fbPage.id,
+          pageName: syncedPage.page_name || fbPage.name || null,
           postsSaved,
           postsQueued,
           pageInsightsSaved: pageInsights.length,
