@@ -28,7 +28,7 @@ CREATE TABLE "connected_pages" (
 -- CreateTable
 CREATE TABLE "posts" (
     "id" UUID NOT NULL,
-    "page_id" UUID NOT NULL,
+    "page_id" TEXT NOT NULL,
     "fb_post_id" TEXT NOT NULL,
     "message" TEXT,
     "type" TEXT,
@@ -82,7 +82,7 @@ CREATE TABLE "cm_earnings_post" (
 -- CreateTable
 CREATE TABLE "cm_earnings_page" (
     "id" UUID NOT NULL,
-    "page_id" UUID NOT NULL,
+    "page_id" TEXT NOT NULL,
     "earnings_amount" DECIMAL(65,30) NOT NULL DEFAULT 0,
     "approximate_earnings" DECIMAL(65,30) NOT NULL DEFAULT 0,
     "content_type_breakdown" JSONB,

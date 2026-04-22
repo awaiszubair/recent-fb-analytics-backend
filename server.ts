@@ -7,6 +7,10 @@ const startServer = async (): Promise<void> => {
   try {
     await connectDB();
 
+    // Register repeatable cron jobs in BullMQ (safe to call on every restart)
+    const { startCronScheduler } = await import("./src/cron/scheduler");
+    await startCronScheduler();
+
     const server = app.listen(Environment.port, () => {
       console.log(`Server is running on http://localhost:${Environment.port}`);
       console.log(`Environment: ${Environment.nodeEnv}`);

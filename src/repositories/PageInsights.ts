@@ -66,6 +66,20 @@ export class PageInsightsRepository extends BaseRepository<PageInsightEntity> {
       insightData
     );
   }
+
+  /** Incremental sync: check if a row already exists for a given page, metric and date */
+  async findByMetricAndDate(pageId: string, metricName: string, date: Date): Promise<PageInsightEntity | null> {
+    const start = new Date(date);
+    start.setUTCHours(0, 0, 0, 0);
+    const end = new Date(date);
+    end.setUTCHours(23, 59, 59, 999);
+
+    const result = await this.delegate.findFirst({
+      where: { page_id: pageId, metric_name: metricName, end_time: { gte: start, lte: end } },
+    });
+
+    return result;
+  }
 }
 
 export default new PageInsightsRepository();

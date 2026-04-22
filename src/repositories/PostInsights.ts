@@ -65,6 +65,20 @@ export class PostInsightsRepository extends BaseRepository<PostInsightEntity> {
       insightData
     );
   }
+
+  /** Incremental sync: check if a row already exists for a given post, metric and date */
+  async findByMetricAndDate(postId: string, metricName: string, date: Date): Promise<PostInsightEntity | null> {
+    const start = new Date(date);
+    start.setUTCHours(0, 0, 0, 0);
+    const end = new Date(date);
+    end.setUTCHours(23, 59, 59, 999);
+
+    const result = await this.delegate.findFirst({
+      where: { post_id: postId, metric_name: metricName, end_time: { gte: start, lte: end } },
+    });
+
+    return result;
+  }
 }
 
 export default new PostInsightsRepository();

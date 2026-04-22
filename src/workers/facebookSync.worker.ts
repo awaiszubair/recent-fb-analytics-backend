@@ -5,6 +5,8 @@ import { getRedisConnectionUrl } from "../config/redis";
 import { facebookSyncQueue } from "../queues/facebookSync.queue";
 import saveFacebookDataService from "../services/saveFacebookData.service";
 import type { PageSyncJobPayload, PostSyncJobPayload } from "../types/facebookSync";
+import { cronFullSyncTask } from "../cron/tasks/fullSync.task";
+import { cronIncrementalSyncTask } from "../cron/tasks/incrementalSync.task";
 
 let workerInstance: Worker | null = null;
 
@@ -33,6 +35,14 @@ export const startFacebookSyncWorker = (): Worker => {
 
       if (job.name === facebookSyncQueue.jobNames.postSync) {
         return saveFacebookDataService.processPostSyncJob(job.data as PostSyncJobPayload);
+      }
+
+      if (job.name === facebookSyncQueue.jobNames.cronFullSync) {
+        return cronFullSyncTask.execute();
+      }
+
+      if (job.name === facebookSyncQueue.jobNames.cronIncrementalSync) {
+        return cronIncrementalSyncTask.execute();
       }
 
       throw new Error(`Unsupported job type: ${job.name}`);

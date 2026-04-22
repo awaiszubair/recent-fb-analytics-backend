@@ -41,6 +41,13 @@ export class ConnectedPageRepository extends BaseRepository<ConnectedPageEntity>
     });
   }
 
+  getAllActivePages(): Promise<ConnectedPageEntity[]> {
+    return this.findManyRecords({
+      where: { is_active: true },
+      orderBy: { created_at: "asc" },
+    });
+  }
+
   updatePage(pageId: string, updates: Partial<ConnectedPageCreateInput>): Promise<ConnectedPageEntity> {
     return this.updateRecord({ id: pageId }, updates);
   }

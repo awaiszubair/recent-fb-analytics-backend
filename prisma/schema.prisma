@@ -100,7 +100,7 @@ model CmEarningsPost {
 
 model CmEarningsPage {
   id                   String   @id @default(uuid()) @db.Uuid
-  page_id              String   @db.Uuid
+  page_id              String
   earnings_amount      Decimal  @default(0)
   approximate_earnings Decimal  @default(0)
   content_type_breakdown Json?

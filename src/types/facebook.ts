@@ -23,6 +23,14 @@ export interface FacebookPost {
   permalink_url?: string;
   status_type?: string;
   type?: string;
+  attachments?: {
+    data?: Array<{
+      media_type?: string;
+      type?: string;
+      media?: Record<string, unknown>;
+    }>;
+  };
+  insights?: FacebookInsightsResponse;
 }
 
 export interface FacebookInsightValue {

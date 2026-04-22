@@ -181,6 +181,52 @@ export class InsightsService extends BaseGraphClient {
     }
   }
 
+  async getPostWithInsights(
+    postId: string,
+    options: GraphQueryOptions = {}
+  ): Promise<{ success: true; data: FacebookPost }> {
+    try {
+      const { access_token, since, until } = options;
+
+      if (!access_token) throw new Error("Access token is required");
+      if (!postId) throw new Error("Post ID is required");
+
+      const fields = [
+        "status_type",
+        "attachments{media,media_type,type}",
+        `insights.metric(content_monetization_earnings).period(day)${since ? `.since(${since})` : ""}${until ? `.until(${until})` : ""}`,
+      ].join(",");
+
+      const requestUrl = `https://graph.facebook.com/v25.0/${postId}`;
+      console.warn("[facebook-sync][debug] getPostWithInsights request", {
+        postId,
+        requestUrl,
+        fields,
+        since: since || null,
+        until: until || null,
+      });
+
+      const response = await this.http.get<FacebookPost>(`/${postId}`, {
+        params: {
+          access_token,
+          fields,
+        },
+      });
+
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error) {
+      const errorDetails = error instanceof Error ? error.message : String(error);
+      console.warn("[facebook-sync][debug] getPostWithInsights failed", {
+        postId,
+        error: errorDetails,
+      });
+      throw new Error(`Failed to fetch post details: ${this.extractMessage(error)}`);
+    }
+  }
+
   async getPagePostsPage(
     pageId: string,
     options: GraphQueryOptions = {}

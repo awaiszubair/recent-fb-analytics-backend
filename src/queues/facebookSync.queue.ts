@@ -8,6 +8,8 @@ const queueName = "facebook-sync";
 const jobNames = {
   pageSync: "page-sync",
   postSync: "post-sync",
+  cronFullSync: "cron-full-sync",
+  cronIncrementalSync: "cron-incremental-sync",
 } as const;
 
 let queueInstance: Queue | null = null;
@@ -69,6 +71,14 @@ export const facebookSyncQueue = {
         data: item,
       }))
     );
+  },
+
+  async registerRepeatableJob(
+    jobName: string,
+    repeatOptions: { every?: number; pattern?: string }
+  ): Promise<void> {
+    await getQueue().add(jobName, {}, { repeat: repeatOptions as never });
+    console.log(`[cron-scheduler] Repeatable job registered`, { jobName, repeatOptions });
   },
 
   async getDiagnostics(): Promise<{

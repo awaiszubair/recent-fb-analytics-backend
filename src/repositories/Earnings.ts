@@ -110,6 +110,34 @@ export class EarningsRepository extends BaseRepository<unknown> {
       })
     ) as unknown as CmEarningsPageEntity;
   }
+
+  /** Incremental sync: check if a page earnings row exists for a given date */
+  async findPageEarningsByDate(pageId: string, date: Date): Promise<CmEarningsPageEntity | null> {
+    const start = new Date(date);
+    start.setUTCHours(0, 0, 0, 0);
+    const end = new Date(date);
+    end.setUTCHours(23, 59, 59, 999);
+
+    return PrismaHelpers.normalizeRecord(
+      await this.pageDelegate.findFirst({
+        where: { page_id: pageId, end_time: { gte: start, lte: end } },
+      })
+    ) as unknown as CmEarningsPageEntity | null;
+  }
+
+  /** Incremental sync: check if a post earnings row exists for a given date */
+  async findPostEarningsByDate(postId: string, date: Date): Promise<CmEarningsPostEntity | null> {
+    const start = new Date(date);
+    start.setUTCHours(0, 0, 0, 0);
+    const end = new Date(date);
+    end.setUTCHours(23, 59, 59, 999);
+
+    return PrismaHelpers.normalizeRecord(
+      await this.postDelegate.findFirst({
+        where: { post_id: postId, end_time: { gte: start, lte: end } },
+      })
+    ) as unknown as CmEarningsPostEntity | null;
+  }
 }
 
 export default new EarningsRepository();

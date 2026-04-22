@@ -80,7 +80,7 @@ export class SchemaRegistry {
     cm_earnings_page: {
       required: ["page_id"],
       fields: {
-        page_id: { type: "uuid", required: true },
+        page_id: { type: "text", required: true },
         earnings_amount: { type: "numeric", required: false, default: 0 },
         approximate_earnings: { type: "numeric", required: false, default: 0 },
         content_type_breakdown: { type: "jsonb", required: false, default: null },
