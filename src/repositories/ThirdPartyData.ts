@@ -16,7 +16,6 @@ export class ThirdPartyDataRepository extends BaseRepository<ThirdPartyDataEntit
   getPageThirdPartyData(pageId: string): Promise<ThirdPartyDataEntity[]> {
     return this.findManyRecords({
       where: { page_id: pageId },
-      orderBy: { synced_at: "desc" },
     });
   }
 

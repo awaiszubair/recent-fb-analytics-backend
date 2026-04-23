@@ -38,6 +38,14 @@ export class EarningsRepository extends BaseRepository<unknown> {
     return normalized;
   }
 
+  async getPostEarnings(postId: string): Promise<CmEarningsPostEntity[]> {
+    return PrismaHelpers.normalizeRecords(
+      await this.postDelegate.findMany({
+        where: { post_id: postId },
+      })
+    ) as unknown as CmEarningsPostEntity[];
+  }
+
   async createPostEarnings(earningsData: PostEarningsCreateInput): Promise<CmEarningsPostEntity> {
     const validation = validateData("cm_earnings_post", earningsData as unknown as Record<string, unknown>);
     if (!validation.valid) {
@@ -51,12 +59,13 @@ export class EarningsRepository extends BaseRepository<unknown> {
     ) as unknown as CmEarningsPostEntity;
   }
 
-  async getPostEarnings(postId: string): Promise<CmEarningsPostEntity[]> {
+  async getPageEarnings(pageId: string): Promise<CmEarningsPageEntity[]> {
     return PrismaHelpers.normalizeRecords(
-      await this.postDelegate.findMany({
-        where: { post_id: postId },
+      await this.pageDelegate.findMany({
+        where: { page_id: pageId },
+        orderBy: { end_time: "desc" },
       })
-    ) as unknown as CmEarningsPostEntity[];
+    ) as unknown as CmEarningsPageEntity[];
   }
 
   async createPageEarnings(earningsData: PageEarningsCreateInput): Promise<CmEarningsPageEntity> {
@@ -70,15 +79,6 @@ export class EarningsRepository extends BaseRepository<unknown> {
         data: this.normalizeEarningsInput(earningsData) as never,
       })
     ) as unknown as CmEarningsPageEntity;
-  }
-
-  async getPageEarnings(pageId: string): Promise<CmEarningsPageEntity[]> {
-    return PrismaHelpers.normalizeRecords(
-      await this.pageDelegate.findMany({
-        where: { page_id: pageId },
-        orderBy: { end_time: "desc" },
-      })
-    ) as unknown as CmEarningsPageEntity[];
   }
 
   async upsertPostEarnings(earningsData: PostEarningsCreateInput): Promise<CmEarningsPostEntity> {

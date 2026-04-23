@@ -4,17 +4,15 @@
  * Runs once daily (default: 1:00 AM).
  * For each active page, for each tracked metric:
  *   1. Check if yesterday's row already exists in the DB
- *   2. If it DOES exist → skip (no duplicate write)
- *   3. If it does NOT exist → fetch from Facebook and append
+ *   2. If it does exist, skip
+ *   3. If it does not exist, fetch from Facebook and append
  *
  * Tables covered:
- *   - page_insights     → 1 row per (page_id, metric_name, end_time=yesterday)
- *   - post_insights     → 1 row per (post_id, metric_name, end_time=yesterday)
- *   - cm_earnings_page  → 1 row per (page_id, end_time=yesterday)
- *   - cm_earnings_post  → 1 row per (post_id, end_time=yesterday)
- *   - sync_jobs         → updated on complete/fail
- *
- * All actual save logic is delegated to SaveFacebookDataService (unchanged).
+ *   - page_insights
+ *   - post_insights
+ *   - cm_earnings_page
+ *   - cm_earnings_post
+ *   - sync_jobs
  */
 import { BaseSyncTask } from "../base.sync-task";
 import saveFacebookDataService from "../../services/saveFacebookData.service";
@@ -81,7 +79,6 @@ class IncrementalSyncTask extends BaseSyncTask {
 
         const accessToken = decryptPageToken(page.page_token_encrypted);
 
-        // ── 1. Page Insights ─────────────────────────────────────────────────
         for (const metric of DEFAULT_PAGE_METRICS) {
           const existing = await pageInsightsRepository.findByMetricAndDate(
             page.fb_page_id,
@@ -90,11 +87,9 @@ class IncrementalSyncTask extends BaseSyncTask {
           );
 
           if (existing) {
-            // Row exists — skip, no duplicate write
             continue;
           }
 
-          // Row missing — fetch and append only yesterday's data
           this.log(`Appending missing page insight: ${metric} for ${page.fb_page_id}`);
           const saved = await saveFacebookDataService.syncPageInsights({
             pageId: page.id,
@@ -108,7 +103,8 @@ class IncrementalSyncTask extends BaseSyncTask {
           pageInsightsAppended += saved.length;
         }
 
-        // ── 2. CM Earnings (Page) ────────────────────────────────────────────
+        const posts = await postRepository.getPagePosts(page.id);
+
         const existingPageEarnings = await earningsRepository.findPageEarningsByDate(
           page.fb_page_id,
           yesterday
@@ -116,34 +112,23 @@ class IncrementalSyncTask extends BaseSyncTask {
 
         if (!existingPageEarnings) {
           this.log(`Appending missing page earnings for ${page.fb_page_id}`);
-          // Earnings are fetched via getPostWithInsights (content_monetization_earnings)
-          // For page-level: we call syncPageInsights with the earnings metric
-          const saved = await saveFacebookDataService.syncPageInsights({
-            pageId: page.id,
-            facebookPageId: page.fb_page_id,
+          const saved = await saveFacebookDataService.syncPageCMEarningsForWindow(
+            page.fb_page_id,
             accessToken,
-            metrics: ["content_monetization_earnings"],
-            period: "day",
             since,
             until,
-          });
-          earningsPageAppended += saved.length;
+            posts
+          );
+          earningsPageAppended += saved;
         }
-
-        // ── 3. Post Insights + CM Earnings (Post) ───────────────────────────
-        const posts = await postRepository.getPagePosts(page.id);
 
         for (const post of posts) {
           try {
-            // Post Insights
-            for (const metric of DEFAULT_POST_METRICS) {
-              const existing = await postInsightsRepository.findByMetricAndDate(
-                post.fb_post_id,
-                metric,
-                yesterday
-              );
+            const existingPostInsights = await postInsightsRepository.getPostInsights(post.fb_post_id);
+            const existingMetrics = new Set(existingPostInsights.map((insight) => insight.metric_name));
 
-              if (existing) {
+            for (const metric of DEFAULT_POST_METRICS) {
+              if (existingMetrics.has(metric)) {
                 continue;
               }
 
@@ -153,13 +138,10 @@ class IncrementalSyncTask extends BaseSyncTask {
                 facebookPostId: post.fb_post_id,
                 accessToken,
                 metrics: [metric],
-                since,
-                until,
               });
               postInsightsAppended += saved.length;
             }
 
-            // CM Earnings (Post level)
             const existingPostEarnings = await earningsRepository.findPostEarningsByDate(
               post.fb_post_id,
               yesterday
@@ -167,15 +149,13 @@ class IncrementalSyncTask extends BaseSyncTask {
 
             if (!existingPostEarnings) {
               this.log(`Appending missing post earnings for ${post.fb_post_id}`);
-              const saved = await saveFacebookDataService.syncPostInsights({
-                fbPostId: post.fb_post_id,
-                facebookPostId: post.fb_post_id,
+              const saved = await saveFacebookDataService.syncPostCMEarningsForWindow(
+                post.fb_post_id,
                 accessToken,
-                metrics: ["content_monetization_earnings"],
                 since,
-                until,
-              });
-              earningsPostAppended += saved.length;
+                until
+              );
+              earningsPostAppended += saved;
             }
           } catch (postErr) {
             this.warn(`Failed incremental sync for post ${post.fb_post_id}`, {

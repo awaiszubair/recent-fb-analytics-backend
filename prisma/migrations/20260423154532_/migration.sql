@@ -68,7 +68,7 @@ CREATE TABLE "post_insights" (
 -- CreateTable
 CREATE TABLE "cm_earnings_post" (
     "id" UUID NOT NULL,
-    "post_id" UUID NOT NULL,
+    "post_id" TEXT NOT NULL,
     "earnings_amount" DECIMAL(65,30) NOT NULL DEFAULT 0,
     "approximate_earnings" DECIMAL(65,30) NOT NULL DEFAULT 0,
     "currency" TEXT NOT NULL DEFAULT 'USD',

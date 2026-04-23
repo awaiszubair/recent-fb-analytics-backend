@@ -209,8 +209,8 @@ export class InsightsService extends BaseGraphClient {
 
       const fields = [
         "status_type",
-        "message",
-        "type",
+        // "message",
+        // "type",
         "attachments{media,media_type,type}",
         `insights.metric(content_monetization_earnings).period(day)${normalizedSince ? `.since(${normalizedSince})` : ""}${normalizedUntil ? `.until(${normalizedUntil})` : ""}`,
       ].join(",");

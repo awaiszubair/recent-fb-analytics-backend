@@ -69,7 +69,7 @@ export class SchemaRegistry {
     cm_earnings_post: {
       required: ["post_id"],
       fields: {
-        post_id: { type: "uuid", required: true },
+        post_id: { type: "text", required: true },
         earnings_amount: { type: "numeric", required: false, default: 0 },
         approximate_earnings: { type: "numeric", required: false, default: 0 },
         currency: { type: "text", required: false, default: "USD" },

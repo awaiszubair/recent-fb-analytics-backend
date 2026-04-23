@@ -78,6 +78,11 @@ type ContentTypeBreakdown = Record<
   }
 >;
 
+type EarningsPostSource = {
+  id?: string;
+  fb_post_id?: string;
+};
+
 export class SaveFacebookDataService extends BaseService {
   constructor() {
     super("SaveFacebookDataService");
@@ -176,16 +181,21 @@ export class SaveFacebookDataService extends BaseService {
   }
 
   private async buildContentTypeBreakdown(
-    posts: FacebookPost[],
+    posts: EarningsPostSource[],
     accessToken: string,
     since: string,
     until: string
   ): Promise<Map<string, ContentTypeBreakdown>> {
     const breakdownByDate = new Map<string, ContentTypeBreakdown>();
-    const pagePosts = posts.filter((post): post is FacebookPost => Boolean(post?.id));
+    const pagePosts = posts.filter((post): post is EarningsPostSource => Boolean(post?.id || post?.fb_post_id));
 
     for (const post of pagePosts) {
-      const postResponse = await insightsService.getPostWithInsights(post.id, {
+      const postId = post.fb_post_id || post.id;
+      if (!postId) {
+        continue;
+      }
+
+      const postResponse = await insightsService.getPostWithInsights(postId, {
         access_token: accessToken,
         since,
         until,
@@ -218,12 +228,12 @@ export class SaveFacebookDataService extends BaseService {
     return breakdownByDate;
   }
 
-  private async syncPageCMEarningsForWindow(
+  async syncPageCMEarningsForWindow(
     pageId: string,
     accessToken: string,
     since: string,
     until: string,
-    posts: FacebookPost[]
+    posts: EarningsPostSource[]
   ): Promise<number> {
     try {
       const response = await insightsService.getPageInsights(pageId, EARNINGS_METRICS, {
@@ -266,8 +276,7 @@ export class SaveFacebookDataService extends BaseService {
     }
   }
 
-  private async syncPostCMEarningsForWindow(
-    postId: string,
+  async syncPostCMEarningsForWindow(
     fbPostId: string,
     accessToken: string,
     since: string,
@@ -290,7 +299,7 @@ export class SaveFacebookDataService extends BaseService {
 
       for (const row of rows) {
         await this.syncPostEarnings({
-          post_id: postId,
+          post_id: fbPostId,
           earnings_amount: row.earnings_amount,
           approximate_earnings: row.approximate_earnings,
           currency: row.currency,
@@ -504,7 +513,6 @@ export class SaveFacebookDataService extends BaseService {
         });
 
         const postEarningsSaved = await this.syncPostCMEarningsForWindow(
-          payload.postId,
           payload.fbPostId,
           payload.accessToken,
           this.getWindowStart(DEFAULT_SYNC_WINDOW_DAYS),
@@ -718,6 +726,18 @@ export class SaveFacebookDataService extends BaseService {
     });
   }
 
+  async saveThirdPartyData(pageId: string | null, postId: string | null, dataType: string, value: unknown): Promise<ThirdPartyDataEntity> {
+    const payload: ThirdPartyDataCreateInput = {
+      page_id: pageId,
+      post_id: postId,
+      data_type: dataType,
+      value: value as never,
+      synced_at: new Date(),
+    };
+
+    return thirdPartyDataRepository.createThirdPartyData(payload);
+  }
+
   async createSyncJob(pageId: string, jobType: string): Promise<SyncJobEntity> {
     return syncJobRepository.createSyncJob({
       page_id: pageId,
@@ -733,18 +753,6 @@ export class SaveFacebookDataService extends BaseService {
       error_log: errorLog,
       completed_at: ["completed", "failed"].includes(status) ? new Date() : undefined,
     });
-  }
-
-  async saveThirdPartyData(pageId: string | null, postId: string | null, dataType: string, value: unknown): Promise<ThirdPartyDataEntity> {
-    const payload: ThirdPartyDataCreateInput = {
-      page_id: pageId,
-      post_id: postId,
-      data_type: dataType,
-      value: value as never,
-      synced_at: new Date(),
-    };
-
-    return thirdPartyDataRepository.createThirdPartyData(payload);
   }
 
   private getWindowStart(days: number): string {
