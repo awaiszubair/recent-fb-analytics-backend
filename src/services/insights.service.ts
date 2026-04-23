@@ -191,10 +191,28 @@ export class InsightsService extends BaseGraphClient {
       if (!access_token) throw new Error("Access token is required");
       if (!postId) throw new Error("Post ID is required");
 
+      const formatMetaDate = (value?: string): string | undefined => {
+        if (!value) {
+          return undefined;
+        }
+
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) {
+          return value;
+        }
+
+        return parsed.toISOString().slice(0, 10);
+      };
+
+      const normalizedSince = formatMetaDate(since);
+      const normalizedUntil = formatMetaDate(until);
+
       const fields = [
         "status_type",
+        "message",
+        "type",
         "attachments{media,media_type,type}",
-        `insights.metric(content_monetization_earnings).period(day)${since ? `.since(${since})` : ""}${until ? `.until(${until})` : ""}`,
+        `insights.metric(content_monetization_earnings).period(day)${normalizedSince ? `.since(${normalizedSince})` : ""}${normalizedUntil ? `.until(${normalizedUntil})` : ""}`,
       ].join(",");
 
       const requestUrl = `https://graph.facebook.com/v25.0/${postId}`;
@@ -202,8 +220,8 @@ export class InsightsService extends BaseGraphClient {
         postId,
         requestUrl,
         fields,
-        since: since || null,
-        until: until || null,
+        since: normalizedSince || null,
+        until: normalizedUntil || null,
       });
 
       const response = await this.http.get<FacebookPost>(`/${postId}`, {

@@ -9,7 +9,7 @@ dotenv.config();
 async function test() {
     // Replace these with actual values for testing
     const testPostId = "1036934312835044_122105943447067849";
-    const testToken = "EAAMZAxgBE7gIBRPv4UUXhjKoZAeG9H8wNG0jjZC1a50DFTCtU0DA0vAE0Q007rQDn9hUM6y2XUqZCZCYnbcnLnMqsxqFMUBh2mZBVH6hukHiEvXPakzbrHJ0KzxodZC2DHIsqaEAZB0e0MA34sv0gTm16ZBLsfnJXZCi1cMBuo9pUHj6byyBE2nRpAJ9B1GMUMsdlKmFhdRzG791VZAFIKxMqNq5XCxUnkHD50tZATZCooJ4ZAgfCT";
+    const testToken = "EAAMZAxgBE7gIBRWUL80y0UnUmhZB85whtX0yUJZBxXsJEMx0OnyZABC0T0MDb7ZBP8WG5T5AWF33GVRVqJqmDIvOZBnsEZCtPA9juqKqEmLlpEZAKQj9rEhDrX2ed90HTm9an5ZCZClS8eHMgCrZCt6z8LpAnYyoZAtZBsq5lWlZCsiMlZCFZA0ZBjc1vr5Rl2xYItbZAuUZBDws390m2lZAB5c5FEALUHD0S256nRpJxmZANzZBXrjAZDZD";
 
     console.log("🚀 Starting test for getPostWithInsights...");
 

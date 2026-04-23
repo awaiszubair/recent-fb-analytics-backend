@@ -43,10 +43,272 @@ const DEFAULT_POST_METRICS = [
 const DEFAULT_SYNC_WINDOW_DAYS = 90;
 const DEFAULT_POST_FETCH_LIMIT = 100;
 const DEFAULT_POST_WRITE_CHUNK = 10;
+const EARNINGS_METRICS = ["content_monetization_earnings", "monetization_approximate_earnings"];
+
+type EarningsInsightValue = {
+  currency?: string;
+  microAmount?: number | string | bigint;
+};
+
+type EarningsInsightEntry = {
+  name: string;
+  period?: string;
+  values?: Array<{
+    value?: EarningsInsightValue;
+    end_time?: string;
+  }>;
+};
+
+type DailyEarningsRow = {
+  end_time: Date;
+  period: string | null;
+  earnings_amount: number;
+  approximate_earnings: number;
+  currency: string;
+};
+
+type ContentTypeBreakdownKey = "video" | "photo" | "link" | "text" | "other";
+
+type ContentTypeBreakdown = Record<
+  ContentTypeBreakdownKey,
+  {
+    earnings_amount: number;
+    approximate_earnings: number;
+    post_count: number;
+  }
+>;
 
 export class SaveFacebookDataService extends BaseService {
   constructor() {
     super("SaveFacebookDataService");
+  }
+
+  private extractMicroAmount(value?: EarningsInsightValue | null): number {
+    if (!value || value.microAmount === undefined || value.microAmount === null) {
+      return 0;
+    }
+
+    if (typeof value.microAmount === "number") {
+      return value.microAmount;
+    }
+
+    if (typeof value.microAmount === "bigint") {
+      return Number(value.microAmount);
+    }
+
+    const parsed = Number(value.microAmount);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+
+  private buildDailyEarningsRows(insightsData: { data?: EarningsInsightEntry[] }): DailyEarningsRow[] {
+    const rows = new Map<string, DailyEarningsRow>();
+
+    for (const entry of insightsData.data || []) {
+      for (const value of entry.values || []) {
+        if (!value.end_time) {
+          continue;
+        }
+
+        const endTime = new Date(value.end_time);
+        if (Number.isNaN(endTime.getTime())) {
+          continue;
+        }
+
+        const key = endTime.toISOString();
+        const row = rows.get(key) || {
+          end_time: endTime,
+          period: entry.period || null,
+          earnings_amount: 0,
+          approximate_earnings: 0,
+          currency: value.value?.currency || "USD",
+        };
+
+        if (entry.name === "content_monetization_earnings") {
+          row.earnings_amount = this.extractMicroAmount(value.value);
+        }
+
+        if (entry.name === "monetization_approximate_earnings") {
+          row.approximate_earnings = this.extractMicroAmount(value.value);
+        }
+
+        row.period = entry.period || row.period;
+        row.currency = value.value?.currency || row.currency;
+        rows.set(key, row);
+      }
+    }
+
+    return Array.from(rows.values()).sort((left, right) => left.end_time.getTime() - right.end_time.getTime());
+  }
+
+  private createEmptyContentTypeBreakdown(): ContentTypeBreakdown {
+    return {
+      video: { earnings_amount: 0, approximate_earnings: 0, post_count: 0 },
+      photo: { earnings_amount: 0, approximate_earnings: 0, post_count: 0 },
+      link: { earnings_amount: 0, approximate_earnings: 0, post_count: 0 },
+      text: { earnings_amount: 0, approximate_earnings: 0, post_count: 0 },
+      other: { earnings_amount: 0, approximate_earnings: 0, post_count: 0 },
+    };
+  }
+
+  private getPostContentType(post: FacebookPost): ContentTypeBreakdownKey {
+    const attachment = post.attachments?.data?.[0];
+    const mediaType = attachment?.media_type?.toLowerCase();
+
+    if (mediaType === "video" || mediaType === "photo" || mediaType === "link") {
+      return mediaType;
+    }
+
+    const attachmentType = attachment?.type?.toLowerCase() || "";
+    if (attachmentType.includes("video")) return "video";
+    if (attachmentType.includes("photo")) return "photo";
+    if (attachmentType.includes("link")) return "link";
+
+    const statusType = post.status_type?.toLowerCase() || "";
+    if (statusType.includes("video")) return "video";
+    if (statusType.includes("link")) return "link";
+    if (statusType.includes("photo")) return "photo";
+
+    if (post.message && post.message.trim()) {
+      return "text";
+    }
+
+    return "other";
+  }
+
+  private async buildContentTypeBreakdown(
+    posts: FacebookPost[],
+    accessToken: string,
+    since: string,
+    until: string
+  ): Promise<Map<string, ContentTypeBreakdown>> {
+    const breakdownByDate = new Map<string, ContentTypeBreakdown>();
+    const pagePosts = posts.filter((post): post is FacebookPost => Boolean(post?.id));
+
+    for (const post of pagePosts) {
+      const postResponse = await insightsService.getPostWithInsights(post.id, {
+        access_token: accessToken,
+        since,
+        until,
+      });
+
+      if (!postResponse.success) {
+        continue;
+      }
+
+      const postData = postResponse.data;
+      const contentType = this.getPostContentType(postData);
+      const postRows = this.buildDailyEarningsRows((postData as { insights?: { data?: EarningsInsightEntry[] } }).insights || {});
+
+      if (postRows.length === 0) {
+        continue;
+      }
+
+      for (const row of postRows) {
+        const key = row.end_time.toISOString();
+        const breakdown = breakdownByDate.get(key) || this.createEmptyContentTypeBreakdown();
+
+        breakdown[contentType].earnings_amount += row.earnings_amount;
+        breakdown[contentType].approximate_earnings += row.approximate_earnings;
+        breakdown[contentType].post_count += 1;
+
+        breakdownByDate.set(key, breakdown);
+      }
+    }
+
+    return breakdownByDate;
+  }
+
+  private async syncPageCMEarningsForWindow(
+    pageId: string,
+    accessToken: string,
+    since: string,
+    until: string,
+    posts: FacebookPost[]
+  ): Promise<number> {
+    try {
+      const response = await insightsService.getPageInsights(pageId, EARNINGS_METRICS, {
+        access_token: accessToken,
+        period: "day",
+        since,
+        until,
+      });
+
+      if (!response.success) {
+        return 0;
+      }
+
+      const pageRows = this.buildDailyEarningsRows(response.data as { data?: EarningsInsightEntry[] });
+      const breakdownByDate = await this.buildContentTypeBreakdown(posts, accessToken, since, until);
+
+      let savedCount = 0;
+
+      for (const row of pageRows) {
+        await this.syncPageEarnings({
+          page_id: pageId,
+          earnings_amount: row.earnings_amount,
+          approximate_earnings: row.approximate_earnings,
+          currency: row.currency,
+          period: row.period,
+          end_time: row.end_time,
+          content_type_breakdown: breakdownByDate.get(row.end_time.toISOString()) || this.createEmptyContentTypeBreakdown(),
+          synced_at: new Date(),
+        });
+        savedCount += 1;
+      }
+
+      return savedCount;
+    } catch (error) {
+      console.warn(
+        `[facebook-sync] Skipping page earnings sync for ${pageId}:`,
+        error instanceof Error ? error.message : String(error)
+      );
+      return 0;
+    }
+  }
+
+  private async syncPostCMEarningsForWindow(
+    postId: string,
+    fbPostId: string,
+    accessToken: string,
+    since: string,
+    until: string
+  ): Promise<number> {
+    try {
+      const response = await insightsService.getPostInsights(fbPostId, EARNINGS_METRICS, {
+        access_token: accessToken,
+        period: "day",
+        since,
+        until,
+      });
+
+      if (!response.success) {
+        return 0;
+      }
+
+      const rows = this.buildDailyEarningsRows(response.data as { data?: EarningsInsightEntry[] });
+      let savedCount = 0;
+
+      for (const row of rows) {
+        await this.syncPostEarnings({
+          post_id: postId,
+          earnings_amount: row.earnings_amount,
+          approximate_earnings: row.approximate_earnings,
+          currency: row.currency,
+          period: row.period,
+          end_time: row.end_time,
+          synced_at: new Date(),
+        });
+        savedCount += 1;
+      }
+
+      return savedCount;
+    } catch (error) {
+      console.warn(
+        `[facebook-sync] Skipping post earnings sync for ${fbPostId}:`,
+        error instanceof Error ? error.message : String(error)
+      );
+      return 0;
+    }
   }
 
   async initialConnectionSync(accessToken: string): Promise<InitialConnectionSyncResult> {
@@ -101,6 +363,7 @@ export class SaveFacebookDataService extends BaseService {
     return this.run("processPageSyncJob", async () => {
       const fbPage = payload.facebookPage;
       const accessToken = fbPage.access_token || payload.accessToken;
+      const syncUntil = new Date().toISOString();
       let syncJob: SyncJobEntity | null = null;
 
       console.log(`[facebook-sync] 🚀 Starting full sync for page: ${fbPage.name || fbPage.id} (${fbPage.id})`);
@@ -127,13 +390,14 @@ export class SaveFacebookDataService extends BaseService {
           metrics: payload.pageMetrics || DEFAULT_PAGE_METRICS,
           period: "day",
           since: this.getWindowStart(payload.syncWindowDays ?? DEFAULT_SYNC_WINDOW_DAYS),
-          until: new Date().toISOString(),
+          until: syncUntil,
         });
         console.log(`[facebook-sync] ✅ Saved ${pageInsights.length} page insights for ${fbPage.id}`);
 
         let postsSaved = 0;
         let postsQueued = 0;
         let nextPageUrl: string | undefined;
+        const allFbPosts: FacebookPost[] = [];
 
         console.log(`[facebook-sync] 📝 Starting to fetch posts for page ${fbPage.id}...`);
         let pageNum = 1;
@@ -143,12 +407,13 @@ export class SaveFacebookDataService extends BaseService {
             access_token: accessToken,
             limit: payload.postBatchSize ?? DEFAULT_POST_FETCH_LIMIT,
             since: this.getWindowStart(payload.syncWindowDays ?? DEFAULT_SYNC_WINDOW_DAYS),
-            until: new Date().toISOString(),
+            until: syncUntil,
             nextPageUrl,
           });
 
           const postJobs: PostSyncJobPayload[] = [];
           const fbPosts = postsPage.data.filter((rawPost): rawPost is FacebookPost => Boolean(rawPost?.id));
+          allFbPosts.push(...fbPosts);
           console.log(`[facebook-sync] 🔄 Fetched batch ${pageNum} (${fbPosts.length} posts) from Facebook for page ${fbPage.id}`);
 
           const postWriteChunkSize = payload.postWriteChunkSize ?? DEFAULT_POST_WRITE_CHUNK;
@@ -188,6 +453,15 @@ export class SaveFacebookDataService extends BaseService {
           pageNum++;
         } while (nextPageUrl);
 
+        const pageEarningsSaved = await this.syncPageCMEarningsForWindow(
+          fbPage.id,
+          accessToken,
+          this.getWindowStart(payload.syncWindowDays ?? DEFAULT_SYNC_WINDOW_DAYS),
+          syncUntil,
+          allFbPosts
+        );
+        console.log(`[facebook-sync] ðŸ’° Saved ${pageEarningsSaved} page earnings rows for ${fbPage.id}`);
+
         await this.updateSyncJob(syncJob.id, "completed");
 
         console.log(`[facebook-sync] 🎉 Successfully fully synced page: ${fbPage.name || fbPage.id} (${fbPage.id})`);
@@ -214,6 +488,7 @@ export class SaveFacebookDataService extends BaseService {
   async processPostSyncJob(payload: PostSyncJobPayload): Promise<PostSyncJobResult> {
     return this.run("processPostSyncJob", async () => {
       const syncJob = await this.createSyncJob(payload.pageId, "post_sync");
+      const syncUntil = new Date().toISOString();
       // console.log(`[facebook-sync] 🔍 Fetching insights for post ${payload.fbPostId}...`);
 
       try {
@@ -225,8 +500,17 @@ export class SaveFacebookDataService extends BaseService {
           accessToken: payload.accessToken,
           metrics: DEFAULT_POST_METRICS,
           since: this.getWindowStart(DEFAULT_SYNC_WINDOW_DAYS),
-          until: new Date().toISOString(),
+          until: syncUntil,
         });
+
+        const postEarningsSaved = await this.syncPostCMEarningsForWindow(
+          payload.postId,
+          payload.fbPostId,
+          payload.accessToken,
+          this.getWindowStart(DEFAULT_SYNC_WINDOW_DAYS),
+          syncUntil
+        );
+        console.log(`[facebook-sync] ðŸ’° Saved ${postEarningsSaved} post earnings rows for ${payload.fbPostId}`);
 
         const post = await postRepository.getPostById(payload.postId);
 

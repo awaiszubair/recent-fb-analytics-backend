@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>CodeFlow Visualizer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;
+    --accent:#58a6ff;--accent2:#3fb950;--accent3:#f78166;--accent4:#e3b341;
+    --text:#e6edf3;--text2:#8b949e;--async:#bc8cff;--exported:#79c0ff;
+  }
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+  /* TOOLBAR */
+  #toolbar{
+    display:flex;align-items:center;gap:8px;padding:10px 16px;
+    background:var(--surface);border-bottom:1px solid var(--border);
+    flex-shrink:0;flex-wrap:wrap;
+  }
+  #toolbar h1{font-size:14px;font-weight:700;color:var(--accent);letter-spacing:.5px;margin-right:8px;white-space:nowrap}
+  #toolbar h1 span{color:var(--text2);font-weight:400}
+  .tb-sep{width:1px;height:24px;background:var(--border);margin:0 4px}
+  .tb-btn{
+    display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:6px;
+    border:1px solid var(--border);background:var(--surface2);color:var(--text);
+    font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap
+  }
+  .tb-btn:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tb-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  #searchBox{
+    padding:5px 12px;border-radius:6px;border:1px solid var(--border);
+    background:var(--surface2);color:var(--text);font-size:12px;width:180px;outline:none
+  }
+  #searchBox:focus{border-color:var(--accent)}
+  #filterFile{
+    padding:5px 10px;border-radius:6px;border:1px solid var(--border);
+    background:var(--surface2);color:var(--text);font-size:12px;max-width:200px;outline:none
+  }
+  #stats{font-size:11px;color:var(--text2);margin-left:auto;white-space:nowrap}
+
+  /* MAIN */
+  #main{display:flex;flex:1;overflow:hidden}
+
+  /* GRAPH */
+  #cy{flex:1;background:var(--bg);cursor:grab}
+  #cy:active{cursor:grabbing}
+
+  /* MINI-MAP */
+  #minimap{
+    position:absolute;bottom:16px;left:16px;width:160px;height:100px;
+    border-radius:8px;border:1px solid var(--border);background:rgba(13,17,23,.9);
+    pointer-events:none;overflow:hidden
+  }
+
+  /* SIDEBAR */
+  #sidebar{
+    width:320px;min-width:320px;background:var(--surface);border-left:1px solid var(--border);
+    display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;
+    transition:all .2s
+  }
+  #sidebar.collapsed{width:0;min-width:0;border:none}
+  #sidebarHeader{
+    padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0
+  }
+  #sidebarHeader h2{font-size:13px;font-weight:700;color:var(--text)}
+  #sidebarContent{flex:1;overflow-y:auto;padding:14px}
+
+  /* NODE DETAIL CARD */
+  .detail-empty{color:var(--text2);font-size:13px;text-align:center;margin-top:40px}
+  .detail-name{font-size:16px;font-weight:700;color:var(--accent);word-break:break-all;margin-bottom:4px}
+  .detail-file{font-size:11px;color:var(--text2);margin-bottom:12px;cursor:pointer;text-decoration:underline}
+  .detail-file:hover{color:var(--accent)}
+  .badge-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+  .badge{
+    display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;
+    font-size:10px;font-weight:600;border:1px solid transparent
+  }
+  .badge-async{background:rgba(188,140,255,.15);color:var(--async);border-color:rgba(188,140,255,.3)}
+  .badge-export{background:rgba(121,192,255,.15);color:var(--exported);border-color:rgba(121,192,255,.3)}
+  .badge-kind{background:rgba(88,166,255,.1);color:var(--accent);border-color:rgba(88,166,255,.25)}
+  .section-label{font-size:10px;font-weight:700;color:var(--text2);letter-spacing:.8px;text-transform:uppercase;margin:12px 0 6px}
+  .param-row{
+    display:flex;align-items:baseline;gap:6px;padding:5px 8px;border-radius:6px;
+    background:var(--surface2);margin-bottom:4px;font-size:12px
+  }
+  .param-name{color:var(--accent4);font-weight:600}
+  .param-type{color:var(--accent2);font-family:'Consolas','Courier New',monospace;font-size:11px}
+  .param-opt{color:var(--text2);font-size:10px}
+  .return-type{
+    font-family:'Consolas','Courier New',monospace;font-size:12px;color:var(--accent2);
+    background:var(--surface2);padding:6px 10px;border-radius:6px
+  }
+  .call-item{
+    padding:6px 8px;border-radius:6px;background:var(--surface2);margin-bottom:4px;
+    font-size:12px;cursor:pointer;border:1px solid transparent;transition:all .15s
+  }
+  .call-item:hover{border-color:var(--accent);background:rgba(88,166,255,.05)}
+  .call-item .fn-name{color:var(--text);font-weight:600}
+  .call-item .fn-file{color:var(--text2);font-size:10px}
+  .call-item .fn-line{color:var(--accent);font-size:10px;float:right}
+  .doc-comment{
+    font-size:12px;color:var(--text2);font-style:italic;
+    border-left:2px solid var(--accent);padding:6px 10px;
+    background:var(--surface2);border-radius:0 6px 6px 0;margin-bottom:8px
+  }
+  .open-btn{
+    display:block;width:100%;margin-top:12px;padding:8px;text-align:center;
+    border-radius:8px;border:1px solid var(--accent);background:rgba(88,166,255,.1);
+    color:var(--accent);font-size:12px;cursor:pointer;transition:all .15s
+  }
+  .open-btn:hover{background:var(--accent);color:#fff}
+
+  /* LEGEND */
+  #legend{
+    position:absolute;top:60px;right:340px;
+    background:rgba(22,27,34,.92);border:1px solid var(--border);
+    border-radius:10px;padding:12px 14px;font-size:11px;pointer-events:none;
+    display:flex;flex-direction:column;gap:6px
+  }
+  #legend.sidebar-collapsed{right:16px}
+  .leg-row{display:flex;align-items:center;gap:8px;color:var(--text2)}
+  .leg-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+
+  /* TOOLTIP */
+  #tooltip{
+    position:absolute;background:rgba(22,27,34,.97);border:1px solid var(--border);
+    border-radius:8px;padding:10px 12px;font-size:12px;pointer-events:none;
+    opacity:0;transition:opacity .15s;max-width:280px;z-index:100
+  }
+  #tooltip.visible{opacity:1}
+  #tooltip .tt-name{font-weight:700;color:var(--accent);margin-bottom:4px}
+  #tooltip .tt-sig{color:var(--accent2);font-family:monospace;font-size:11px;word-break:break-all}
+  #tooltip .tt-file{color:var(--text2);font-size:10px;margin-top:4px}
+
+  /* LOADING */
+  #loading{
+    position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;background:var(--bg);z-index:200;gap:16px
+  }
+  .spinner{
+    width:48px;height:48px;border:3px solid var(--border);
+    border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #loading p{color:var(--text2);font-size:13px}
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar{width:6px}
+  ::-webkit-scrollbar-track{background:var(--surface)}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+  ::-webkit-scrollbar-thumb:hover{background:var(--text2)}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p>Building code flow graph…</p>
+</div>
+
+<div id="toolbar" style="display:none">
+  <h1>⚡ CodeFlow <span>Visualizer</span></h1>
+  <div class="tb-sep"></div>
+  <input id="searchBox" type="text" placeholder="🔍  Search function…"/>
+  <select id="filterFile"><option value="">All files</option></select>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" id="btnLayout" title="Change layout">⟳ Re-layout</button>
+  <button class="tb-btn" id="btnFitAll" title="Fit all">⤢ Fit</button>
+  <button class="tb-btn" id="btnToggleSidebar" title="Toggle panel">◧ Panel</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" id="btnAsync" title="Highlight async functions">⚡ Async</button>
+  <button class="tb-btn" id="btnExported" title="Highlight exports">↑ Exports</button>
+  <button class="tb-btn" id="btnResetFilter" title="Reset all filters">✕ Reset</button>
+  <span id="stats"></span>
+</div>
+
+<div id="main" style="display:none">
+  <div style="position:relative;flex:1;display:flex">
+    <div id="cy"></div>
+    <div id="minimap"></div>
+    <div id="legend">
+      <div class="leg-row"><div class="leg-dot" style="background:#58a6ff"></div>Regular Function</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#bc8cff"></div>Async Function</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#3fb950"></div>Method</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#e3b341"></div>Arrow Function</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#f78166"></div>Constructor</div>
+    </div>
+    <div id="tooltip">
+      <div class="tt-name"></div>
+      <div class="tt-sig"></div>
+      <div class="tt-file"></div>
+    </div>
+  </div>
+
+  <div id="sidebar">
+    <div id="sidebarHeader">
+      <h2>📋 Function Details</h2>
+    </div>
+    <div id="sidebarContent">
+      <div class="detail-empty">Click any node to inspect it</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const vscode = typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : null;
+const GRAPH_DATA = __GRAPH_DATA__;
+
+const NODE_COLORS = {
+  function:    '#58a6ff',
+  async:       '#bc8cff',
+  method:      '#3fb950',
+  arrow:       '#e3b341',
+  constructor: '#f78166',
+};
+
+function nodeColor(n) {
+  if (n.isAsync) return NODE_COLORS.async;
+  if (n.kind === 'method')      return NODE_COLORS.method;
+  if (n.kind === 'arrow')       return NODE_COLORS.arrow;
+  if (n.kind === 'constructor') return NODE_COLORS.constructor;
+  return NODE_COLORS.function;
+}
+
+function shortName(n) {
+  let displayName = n.name;
+  if (displayName.includes('.')) {
+    displayName = displayName.split('.').pop();
+  }
+  if (displayName.length > 30) return displayName.slice(0,28)+'…';
+  return displayName;
+}
+
+function buildSignature(n) {
+  const params = n.params.map(p => `${p.name}${p.optional?'?':''}: ${p.type}`).join(', ');
+  const async_ = n.isAsync ? 'async ' : '';
+  return `${async_}${n.name}(${params}): ${n.returnType}`;
+}
+
+let cy;
+let activeFilter = null;
+let selectedNode = null;
+
+function initGraph() {
+  const nodes = GRAPH_DATA.nodes.map(n => ({
+    data: {
+      id: n.id,
+      label: shortName(n),
+      color: nodeColor(n),
+      borderColor: n.isExported ? '#79c0ff' : 'transparent',
+      raw: n,
+    }
+  }));
+
+  const edges = GRAPH_DATA.edges.map(e => ({
+    data: {
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      raw: e,
+    }
+  }));
+
+  cy = cytoscape({
+    container: document.getElementById('cy'),
+    elements: { nodes, edges },
+    wheelSensitivity: 0.15, // Smoother zooming control
+    style: [
+      {
+        selector: 'node',
+        style: {
+          'background-color': 'data(color)',
+          'border-color': 'data(borderColor)',
+          'border-width': 2,
+          'label': 'data(label)',
+          'color': '#e6edf3',
+          'font-size': '11px',
+          'font-family': 'Segoe UI, system-ui, sans-serif',
+          'font-weight': '600',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'width': 'label',
+          'height': 'label',
+          'padding': '10px',
+          'shape': 'round-rectangle',
+          'text-wrap': 'wrap',
+          'text-max-width': '120px',
+          'text-outline-width': 0,
+          'shadow-blur': 12,
+          'shadow-color': 'data(color)',
+          'shadow-opacity': 0.35,
+          'shadow-offset-x': 0,
+          'shadow-offset-y': 4,
+          'transition-property': 'background-color, border-color, border-width, opacity',
+          'transition-duration': '0.15s',
+        }
+      },
+      {
+        selector: 'node:selected',
+        style: {
+          'border-color': '#ffffff',
+          'border-width': 3,
+          'shadow-opacity': 0.7,
+        }
+      },
+      {
+        selector: 'node.highlighted',
+        style: { 'border-color': '#ffffff', 'border-width': 3 }
+      },
+      {
+        selector: 'node.faded',
+        style: { 'opacity': 0.15 }
+      },
+      {
+        selector: 'edge',
+        style: {
+          'width': 1.5,
+          'line-color': '#30363d',
+          'target-arrow-color': '#30363d',
+          'target-arrow-shape': 'triangle',
+          'curve-style': 'bezier',
+          'arrow-scale': 1,
+          'opacity': 0.7,
+          'transition-property': 'line-color, target-arrow-color, opacity, width',
+          'transition-duration': '0.15s',
+        }
+      },
+      {
+        selector: 'edge.highlighted',
+        style: {
+          'line-color': '#58a6ff',
+          'target-arrow-color': '#58a6ff',
+          'width': 2.5,
+          'opacity': 1,
+        }
+      },
+      {
+        selector: 'edge.faded',
+        style: { 'opacity': 0.05 }
+      }
+    ],
+    layout: { name: 'cose', animate: true, animationDuration: 600, randomize: false, nodeDimensionsIncludeLabels: true },
+  });
+
+  setupInteractions();
+  populateFileFilter();
+  updateStats();
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('toolbar').style.display = '';
+  document.getElementById('main').style.display = '';
+}
+
+function setupInteractions() {
+  const tooltip = document.getElementById('tooltip');
+
+  cy.on('mouseover', 'node', (e) => {
+    const n = e.target.data('raw');
+    tooltip.querySelector('.tt-name').textContent = n.name;
+    tooltip.querySelector('.tt-sig').textContent = buildSignature(n);
+    tooltip.querySelector('.tt-file').textContent = `${n.fileName} : ${n.line}`;
+    tooltip.classList.add('visible');
+  });
+
+  cy.on('mouseout', 'node', () => tooltip.classList.remove('visible'));
+
+  cy.on('mousemove', (e) => {
+    const pos = e.originalEvent;
+    tooltip.style.left = (pos.clientX + 14) + 'px';
+    tooltip.style.top  = (pos.clientY - 10) + 'px';
+  });
+
+  cy.on('tap', 'node', (e) => {
+    const n = e.target.data('raw');
+    selectNode(e.target, n);
+  });
+
+  cy.on('tap', (e) => {
+    if (e.target === cy) clearSelection();
+  });
+}
+
+function selectNode(cyNode, nodeData) {
+  selectedNode = nodeData;
+  cy.elements().removeClass('highlighted faded');
+
+  const connected = cyNode.neighborhood();
+  cy.elements().addClass('faded');
+  cyNode.addClass('highlighted');
+  cyNode.removeClass('faded');
+  connected.forEach(el => { el.removeClass('faded'); if(el.isEdge()) el.addClass('highlighted'); });
+
+  renderSidebar(nodeData);
+}
+
+function clearSelection() {
+  selectedNode = null;
+  cy.elements().removeClass('highlighted faded');
+  document.getElementById('sidebarContent').innerHTML = '<div class="detail-empty">Click any node to inspect it</div>';
+}
+
+function renderSidebar(n) {
+  const callers = GRAPH_DATA.edges.filter(e => e.target === n.id);
+  const callees = GRAPH_DATA.edges.filter(e => e.source === n.id);
+
+  const getNode = id => GRAPH_DATA.nodes.find(x => x.id === id);
+
+  const badgesHtml = [
+    n.isAsync ? '<span class="badge badge-async">⚡ async</span>' : '',
+    n.isExported ? '<span class="badge badge-export">↑ exported</span>' : '',
+    `<span class="badge badge-kind">${n.kind}</span>`,
+  ].join('');
+
+  const paramsHtml = n.params.length > 0
+    ? n.params.map(p => `
+        <div class="param-row">
+          <span class="param-name">${p.name}</span>
+          <span class="param-opt">${p.optional ? '?' : ''}</span>
+          <span style="color:#8b949e">:</span>
+          <span class="param-type">${escHtml(p.type)}</span>
+          ${p.defaultValue ? `<span style="color:#8b949e;font-size:10px">= ${escHtml(p.defaultValue)}</span>` : ''}
+        </div>`).join('')
+    : '<span style="color:var(--text2);font-size:12px">No parameters</span>';
+
+  const calleeHtml = callees.length > 0
+    ? callees.map(e => {
+        const t = getNode(e.target);
+        if (!t) return '';
+        return `<div class="call-item" data-id="${t.id}">
+          <span class="fn-line">L${e.callLine}</span>
+          <div class="fn-name">${t.name}</div>
+          <div class="fn-file">${t.fileName}</div>
+        </div>`;
+      }).join('')
+    : '<span style="color:var(--text2);font-size:12px">Calls nothing detected</span>';
+
+  const callerHtml = callers.length > 0
+    ? callers.map(e => {
+        const s = getNode(e.source);
+        if (!s) return '';
+        return `<div class="call-item" data-id="${s.id}">
+          <span class="fn-line">L${e.callLine}</span>
+          <div class="fn-name">${s.name}</div>
+          <div class="fn-file">${s.fileName}</div>
+        </div>`;
+      }).join('')
+    : '<span style="color:var(--text2);font-size:12px">Nobody calls this</span>';
+
+  const relPath = n.filePath.replace(/\\/g, '/').split('/').slice(-3).join('/');
+
+  document.getElementById('sidebarContent').innerHTML = `
+    ${n.docComment ? `<div class="doc-comment">${escHtml(n.docComment)}</div>` : ''}
+    <div class="detail-name">${n.name}</div>
+    <div class="detail-file" data-path="${n.filePath}" data-line="${n.line}">📄 …/${relPath} : ${n.line}</div>
+    <div class="badge-row">${badgesHtml}</div>
+    <div class="section-label">Parameters</div>
+    ${paramsHtml}
+    <div class="section-label">Returns</div>
+    <div class="return-type">${escHtml(n.returnType)}</div>
+    <div class="section-label">Calls (${callees.length})</div>
+    ${calleeHtml}
+    <div class="section-label">Called by (${callers.length})</div>
+    ${callerHtml}
+    <button class="open-btn" data-path="${n.filePath}" data-line="${n.line}">↗ Open in Editor</button>
+  `;
+
+  // Click handlers inside sidebar
+  document.querySelectorAll('.call-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.id;
+      const cyNode = cy.getElementById(id);
+      if (cyNode.length) {
+        cy.animate({ center: { eles: cyNode }, zoom: 1.4 }, { duration: 400 });
+        const raw = cyNode.data('raw');
+        selectNode(cyNode, raw);
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-path]').forEach(el => {
+    el.addEventListener('click', () => openInEditor(el.dataset.path, parseInt(el.dataset.line)));
+  });
+}
+
+function openInEditor(filePath, line) {
+  if (vscode) {
+    vscode.postMessage({ command: 'openFile', filePath, line });
+  }
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function populateFileFilter() {
+  const sel = document.getElementById('filterFile');
+  const files = [...new Set(GRAPH_DATA.nodes.map(n => n.fileName))].sort();
+  files.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f; opt.textContent = f;
+    sel.appendChild(opt);
+  });
+}
+
+function updateStats() {
+  const visible = cy.nodes(':visible').length;
+  const total   = cy.nodes().length;
+  const edges   = cy.edges().length;
+  document.getElementById('stats').textContent =
+    `${visible === total ? total : visible+'/'+total} functions · ${edges} calls · ${GRAPH_DATA.files.length} files · ${GRAPH_DATA.analysisTime}ms`;
+}
+
+// ── Toolbar ──────────────────────────────────────────────────────────────────
+document.getElementById('btnLayout').addEventListener('click', () => {
+  cy.layout({ name: 'cose', animate: true, animationDuration: 600, randomize: true, nodeDimensionsIncludeLabels: true }).run();
+});
+
+document.getElementById('btnFitAll').addEventListener('click', () => {
+  cy.animate({ fit: { padding: 40 } }, { duration: 400 });
+});
+
+document.getElementById('btnToggleSidebar').addEventListener('click', () => {
+  const sb = document.getElementById('sidebar');
+  const leg = document.getElementById('legend');
+  sb.classList.toggle('collapsed');
+  leg.classList.toggle('sidebar-collapsed');
+  document.getElementById('btnToggleSidebar').classList.toggle('active');
+  setTimeout(() => { if(cy) cy.resize(); }, 210); // Refresh graph layout boundaries
+});
+
+document.getElementById('btnAsync').addEventListener('click', function() {
+  this.classList.toggle('active');
+  activeFilter = this.classList.contains('active') ? 'async' : null;
+  applyFilter();
+});
+
+document.getElementById('btnExported').addEventListener('click', function() {
+  this.classList.toggle('active');
+  activeFilter = this.classList.contains('active') ? 'exported' : null;
+  applyFilter();
+});
+
+document.getElementById('btnResetFilter').addEventListener('click', () => {
+  activeFilter = null;
+  document.querySelectorAll('.tb-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('searchBox').value = '';
+  document.getElementById('filterFile').value = '';
+  cy.elements().removeClass('faded highlighted');
+  cy.nodes().style('display', 'element');
+  cy.edges().style('display', 'element');
+  updateStats();
+});
+
+document.getElementById('searchBox').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  if (!q) { cy.nodes().style('display','element'); cy.edges().style('display','element'); updateStats(); return; }
+  cy.nodes().forEach(n => {
+    const match = n.data('raw').name.toLowerCase().includes(q);
+    n.style('display', match ? 'element' : 'none');
+  });
+  cy.edges().forEach(e => {
+    const src = cy.getElementById(e.data('source'));
+    const tgt = cy.getElementById(e.data('target'));
+    e.style('display', src.style('display') !== 'none' && tgt.style('display') !== 'none' ? 'element' : 'none');
+  });
+  updateStats();
+});
+
+document.getElementById('filterFile').addEventListener('change', function() {
+  const file = this.value;
+  if (!file) { cy.nodes().style('display','element'); cy.edges().style('display','element'); updateStats(); return; }
+  cy.nodes().forEach(n => {
+    n.style('display', n.data('raw').fileName === file ? 'element' : 'none');
+  });
+  cy.edges().forEach(e => {
+    const src = cy.getElementById(e.data('source'));
+    const tgt = cy.getElementById(e.data('target'));
+    e.style('display', src.style('display') !== 'none' && tgt.style('display') !== 'none' ? 'element' : 'none');
+  });
+  updateStats();
+});
+
+function applyFilter() {
+  if (!activeFilter) { cy.elements().removeClass('faded highlighted'); return; }
+  cy.elements().addClass('faded');
+  cy.nodes().forEach(n => {
+    const raw = n.data('raw');
+    const match = activeFilter === 'async' ? raw.isAsync : raw.isExported;
+    if (match) { n.removeClass('faded'); n.addClass('highlighted'); n.neighborhood().removeClass('faded'); }
+  });
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+if (GRAPH_DATA.nodes.length === 0) {
+  document.getElementById('loading').innerHTML = `
+    <div style="font-size:48px">🔍</div>
+    <p style="color:var(--text);font-size:16px;font-weight:600">No functions found</p>
+    <p style="color:var(--text2);font-size:13px">Make sure your project has TypeScript or JavaScript files.</p>`;
+} else {
+  window.addEventListener('load', initGraph);
+}
+</script>
+</body>
+</html>
