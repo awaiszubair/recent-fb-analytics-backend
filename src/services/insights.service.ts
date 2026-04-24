@@ -215,15 +215,6 @@ export class InsightsService extends BaseGraphClient {
         `insights.metric(content_monetization_earnings).period(day)${normalizedSince ? `.since(${normalizedSince})` : ""}${normalizedUntil ? `.until(${normalizedUntil})` : ""}`,
       ].join(",");
 
-      const requestUrl = `https://graph.facebook.com/v25.0/${postId}`;
-      console.warn("[facebook-sync][debug] getPostWithInsights request", {
-        postId,
-        requestUrl,
-        fields,
-        since: normalizedSince || null,
-        until: normalizedUntil || null,
-      });
-
       const response = await this.http.get<FacebookPost>(`/${postId}`, {
         params: {
           access_token,
@@ -236,11 +227,6 @@ export class InsightsService extends BaseGraphClient {
         data: response.data,
       };
     } catch (error) {
-      const errorDetails = error instanceof Error ? error.message : String(error);
-      console.warn("[facebook-sync][debug] getPostWithInsights failed", {
-        postId,
-        error: errorDetails,
-      });
       throw new Error(`Failed to fetch post details: ${this.extractMessage(error)}`);
     }
   }

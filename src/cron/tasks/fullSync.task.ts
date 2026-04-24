@@ -5,42 +5,27 @@
  * For each active page in the DB:
  *   - page_insights   -> last 7 days
  *   - cm_earnings_page-> last 7 days
- *   - post_insights   -> last 90 days
+ *   - post fetch      -> last 90 days (to queue lifetime post_insights jobs)
  *   - cm_earnings_post-> last 7 days
  *   - sync_jobs       -> one record per run
  */
 import { BaseSyncTask } from "../base.sync-task";
-import saveFacebookDataService from "../../services/saveFacebookData.service";
 import insightsService from "../../services/insights.service";
 import pageRepository from "../../repositories/ConnectedPage";
-import postRepository from "../../repositories/Post";
 import { decryptPageToken } from "../../utils/pageTokenCrypto";
 import type { FacebookPost } from "../../types/facebook";
+import pageSyncService from "../../services/facebook/page.sync.service";
+import postSyncService from "../../services/facebook/post.sync.service";
+import syncJobService from "../../services/facebook/sync-job.service";
+import {
+  DEFAULT_PAGE_METRICS,
+  DEFAULT_POST_FETCH_LIMIT,
+  DEFAULT_POST_METRICS,
+} from "../../services/facebookSync.presets";
 
 const FULL_SYNC_PAGE_INSIGHT_DAYS = 7;
 const FULL_SYNC_POST_INSIGHT_DAYS = 90;
 const FULL_SYNC_EARNINGS_DAYS = 7;
-
-const DEFAULT_PAGE_METRICS = [
-  "page_impressions_unique",
-  "page_post_engagements",
-  "page_media_view",
-  "page_follows",
-  "page_video_views",
-  "page_views_total",
-];
-
-const DEFAULT_POST_METRICS = [
-  "post_impressions_unique",
-  "post_media_view",
-  "post_impressions_organic_unique",
-  "post_impressions_paid_unique",
-  "post_reactions_by_type_total",
-  "post_clicks_by_type",
-  "post_video_views",
-  "post_video_avg_time_watched",
-  "post_video_retention_graph",
-];
 
 class FullSyncTask extends BaseSyncTask {
   protected readonly taskName = "full-sync";
@@ -59,14 +44,14 @@ class FullSyncTask extends BaseSyncTask {
     let pagesFailed = 0;
 
     for (const page of pages) {
-      const syncJob = await saveFacebookDataService.createSyncJob(page.id, "cron_full_sync");
+      const syncJob = await syncJobService.createSyncJob(page.id, "cron_full_sync");
 
       try {
-        await saveFacebookDataService.updateSyncJob(syncJob.id, "running");
+        await syncJobService.updateSyncJob(syncJob.id, "running");
 
         if (!page.page_token_encrypted) {
           this.warn(`No token for page ${page.fb_page_id}, skipping`);
-          await saveFacebookDataService.updateSyncJob(syncJob.id, "failed", "No page token stored");
+          await syncJobService.updateSyncJob(syncJob.id, "failed", "No page token stored");
           pagesFailed++;
           continue;
         }
@@ -78,7 +63,7 @@ class FullSyncTask extends BaseSyncTask {
         const postWindowStart = this.getWindowStart(FULL_SYNC_POST_INSIGHT_DAYS);
 
         this.log(`Syncing page insights for ${page.fb_page_id}...`);
-        const pageInsights = await saveFacebookDataService.syncPageInsights({
+        const pageInsights = await pageSyncService.syncPageInsights({
           pageId: page.id,
           facebookPageId: page.fb_page_id,
           accessToken,
@@ -89,19 +74,18 @@ class FullSyncTask extends BaseSyncTask {
         });
         totalPageInsightsSaved += pageInsights.length;
 
-        const posts = await postRepository.getPagePosts(page.id);
-        this.log(`Syncing post insights for ${posts.length} posts (page: ${page.fb_page_id})...`);
+        this.log(`Syncing post insights for page ${page.fb_page_id}...`);
 
         let nextPageUrl: string | undefined;
         const allFbPosts: FacebookPost[] = [];
         let pageNum = 1;
         let postsSaved = 0;
-        let postsQueued = 0;
+        let postInsightsProcessed = 0;
 
         do {
           const postsPage = await insightsService.getPagePostsPage(page.fb_page_id, {
             access_token: accessToken,
-            limit: 100,
+            limit: DEFAULT_POST_FETCH_LIMIT,
             since: postWindowStart,
             until: syncUntil,
             nextPageUrl,
@@ -111,10 +95,10 @@ class FullSyncTask extends BaseSyncTask {
           allFbPosts.push(...fbPosts);
           this.log(`Fetched batch ${pageNum} (${fbPosts.length} posts) from Facebook for page ${page.fb_page_id}`);
 
-          const postJobs: Array<{ pageId: string; postId: string; fbPostId: string; accessToken: string }> = [];
+          const postJobs: Array<{ fbPostId: string; accessToken: string }> = [];
 
           for (const fbPost of fbPosts) {
-            const syncedPost = await saveFacebookDataService.syncPost({
+            await postSyncService.syncPost({
               page_id: page.fb_page_id,
               fb_post_id: fbPost.id,
               message: fbPost.message,
@@ -125,9 +109,7 @@ class FullSyncTask extends BaseSyncTask {
 
             postsSaved += 1;
             postJobs.push({
-              pageId: page.id,
-              postId: syncedPost.id,
-              fbPostId: syncedPost.fb_post_id,
+              fbPostId: fbPost.id,
               accessToken,
             });
           }
@@ -135,7 +117,7 @@ class FullSyncTask extends BaseSyncTask {
           if (postJobs.length > 0) {
             await Promise.all(
               postJobs.map(async (job) => {
-                const postInsights = await saveFacebookDataService.syncPostInsights({
+                const postInsights = await postSyncService.syncPostInsights({
                   fbPostId: job.fbPostId,
                   facebookPostId: job.fbPostId,
                   accessToken: job.accessToken,
@@ -143,7 +125,7 @@ class FullSyncTask extends BaseSyncTask {
                 });
                 totalPostInsightsSaved += postInsights.length;
 
-                const postEarningsSaved = await saveFacebookDataService.syncPostCMEarningsForWindow(
+                const postEarningsSaved = await postSyncService.syncPostCMEarningsForWindow(
                   job.fbPostId,
                   job.accessToken,
                   earningsWindowStart,
@@ -153,14 +135,14 @@ class FullSyncTask extends BaseSyncTask {
               })
             );
 
-            postsQueued += postJobs.length;
+            postInsightsProcessed += postJobs.length;
           }
 
           nextPageUrl = postsPage.paging?.next;
           pageNum++;
         } while (nextPageUrl);
 
-        const pageEarningsSaved = await saveFacebookDataService.syncPageCMEarningsForWindow(
+        const pageEarningsSaved = await pageSyncService.syncPageCMEarningsForWindow(
           page.fb_page_id,
           accessToken,
           earningsWindowStart,
@@ -169,13 +151,13 @@ class FullSyncTask extends BaseSyncTask {
         );
         totalPageEarningsSaved += pageEarningsSaved;
 
-        await saveFacebookDataService.updateSyncJob(syncJob.id, "completed");
+        await syncJobService.updateSyncJob(syncJob.id, "completed");
         pagesSucceeded++;
         this.log(`✅ Page ${page.fb_page_id} full-synced`);
-        this.log(`📈 Page summary: ${postsSaved} posts saved, ${postsQueued} post insights queued.`);
+        this.log(`📈 Page summary: ${postsSaved} posts saved, ${postInsightsProcessed} post insights processed.`);
       } catch (err) {
         this.error(`Failed to full-sync page ${page.fb_page_id}`, err);
-        await saveFacebookDataService.updateSyncJob(
+        await syncJobService.updateSyncJob(
           syncJob.id,
           "failed",
           err instanceof Error ? err.message : String(err)

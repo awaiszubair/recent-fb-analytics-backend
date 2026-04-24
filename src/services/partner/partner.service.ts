@@ -1,6 +1,6 @@
-import { BaseService } from "../core/base.service";
-import partnerRepository from "../repositories/Partner";
-import type { PartnerCreateInput, PartnerEntity } from "../types/domain";
+import { BaseService } from "../../core/base.service";
+import partnerRepository from "../../repositories/Partner";
+import type { PartnerCreateInput, PartnerEntity } from "../../types/domain";
 
 export class PartnerService extends BaseService {
   constructor() {

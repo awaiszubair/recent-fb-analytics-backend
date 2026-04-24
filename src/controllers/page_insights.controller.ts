@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { BaseController } from "../core/base.controller";
-import pageInsightsService from "../services/page_insights.service";
+import pageInsightsService from "../services/page/page_insights.service";
 import { ResponseFormatter } from "../utils/formatter";
 
 export class PageInsightsController extends BaseController {

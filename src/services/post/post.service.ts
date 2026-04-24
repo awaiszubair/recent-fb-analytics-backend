@@ -1,6 +1,6 @@
-import { BaseService } from "../core/base.service";
-import postRepository from "../repositories/Post";
-import type { PostCreateInput, PostEntity } from "../types/domain";
+import { BaseService } from "../../core/base.service";
+import postRepository from "../../repositories/Post";
+import type { PostCreateInput, PostEntity } from "../../types/domain";
 
 export class PostService extends BaseService {
   constructor() {

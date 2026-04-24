@@ -16,6 +16,7 @@ declare module "express" {
     body: ReqBody;
     query: ReqQuery;
     originalUrl: string;
+    headers: Record<string, string | string[] | undefined>;
   }
 
   export interface Response<ResBody = any> {

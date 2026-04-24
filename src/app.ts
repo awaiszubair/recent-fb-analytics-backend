@@ -8,8 +8,10 @@ import insightsRoutes from "./routes/insights.routes";
 import partnerRoutes from "./routes/partner.routes";
 import pageRoutes from "./routes/page.routes";
 import postRoutes from "./routes/post.routes";
+import revenueExportRoutes from "./routes/revenueExport.routes";
 import saveFacebookDataRoutes from "./routes/saveFacebookData.routes";
 import auth from "./middleware/auth";
+import apiKeyAuth from "./middleware/apiKeyAuth";
 
 const app = express();
 const corsOrigin = Environment.corsOrigin === "*" ? true : Environment.corsOrigin;
@@ -41,6 +43,7 @@ app.use(`${Environment.apiPrefix}/partners`, partnerRoutes);
 app.use(`${Environment.apiPrefix}/pages`, pageRoutes);
 app.use(`${Environment.apiPrefix}/posts`, postRoutes);
 app.use(`${Environment.apiPrefix}/facebook/connect`, auth, saveFacebookDataRoutes);
+app.use(`${Environment.apiPrefix}/revenue-export`, apiKeyAuth, revenueExportRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

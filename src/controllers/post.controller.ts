@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { BaseController } from "../core/base.controller";
-import postService from "../services/post.service";
+import postService from "../services/post/post.service";
 import { ResponseFormatter } from "../utils/formatter";
 
 export class PostController extends BaseController {

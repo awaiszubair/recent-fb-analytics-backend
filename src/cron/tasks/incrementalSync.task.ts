@@ -2,10 +2,10 @@
  * IncrementalSyncTask
  * -------------------
  * Runs once daily (default: 1:00 AM).
- * For each active page, for each tracked metric:
- *   1. Check if yesterday's row already exists in the DB
- *   2. If it does exist, skip
- *   3. If it does not exist, fetch from Facebook and append
+ * For each active page:
+ *   - page_insights and earnings tables check yesterday's daily row
+ *   - post_insights checks lifetime metrics already stored for each post
+ *   - missing rows are fetched from Facebook and appended
  *
  * Tables covered:
  *   - page_insights
@@ -15,34 +15,19 @@
  *   - sync_jobs
  */
 import { BaseSyncTask } from "../base.sync-task";
-import saveFacebookDataService from "../../services/saveFacebookData.service";
 import pageRepository from "../../repositories/ConnectedPage";
 import postRepository from "../../repositories/Post";
 import pageInsightsRepository from "../../repositories/PageInsights";
 import postInsightsRepository from "../../repositories/PostInsights";
 import earningsRepository from "../../repositories/Earnings";
 import { decryptPageToken } from "../../utils/pageTokenCrypto";
-
-const DEFAULT_PAGE_METRICS = [
-  "page_impressions_unique",
-  "page_post_engagements",
-  "page_media_view",
-  "page_follows",
-  "page_video_views",
-  "page_views_total",
-];
-
-const DEFAULT_POST_METRICS = [
-  "post_impressions_unique",
-  "post_media_view",
-  "post_impressions_organic_unique",
-  "post_impressions_paid_unique",
-  "post_reactions_by_type_total",
-  "post_clicks_by_type",
-  "post_video_views",
-  "post_video_avg_time_watched",
-  "post_video_retention_graph",
-];
+import pageSyncService from "../../services/facebook/page.sync.service";
+import postSyncService from "../../services/facebook/post.sync.service";
+import syncJobService from "../../services/facebook/sync-job.service";
+import {
+  DEFAULT_PAGE_METRICS,
+  DEFAULT_POST_METRICS,
+} from "../../services/facebookSync.presets";
 
 class IncrementalSyncTask extends BaseSyncTask {
   protected readonly taskName = "incremental-sync";
@@ -65,14 +50,14 @@ class IncrementalSyncTask extends BaseSyncTask {
     let pagesFailed = 0;
 
     for (const page of pages) {
-      const syncJob = await saveFacebookDataService.createSyncJob(page.id, "cron_incremental_sync");
+      const syncJob = await syncJobService.createSyncJob(page.id, "cron_incremental_sync");
 
       try {
-        await saveFacebookDataService.updateSyncJob(syncJob.id, "running");
+        await syncJobService.updateSyncJob(syncJob.id, "running");
 
         if (!page.page_token_encrypted) {
           this.warn(`No token for page ${page.fb_page_id}, skipping`);
-          await saveFacebookDataService.updateSyncJob(syncJob.id, "failed", "No page token stored");
+          await syncJobService.updateSyncJob(syncJob.id, "failed", "No page token stored");
           pagesFailed++;
           continue;
         }
@@ -91,7 +76,7 @@ class IncrementalSyncTask extends BaseSyncTask {
           }
 
           this.log(`Appending missing page insight: ${metric} for ${page.fb_page_id}`);
-          const saved = await saveFacebookDataService.syncPageInsights({
+          const saved = await pageSyncService.syncPageInsights({
             pageId: page.id,
             facebookPageId: page.fb_page_id,
             accessToken,
@@ -112,7 +97,7 @@ class IncrementalSyncTask extends BaseSyncTask {
 
         if (!existingPageEarnings) {
           this.log(`Appending missing page earnings for ${page.fb_page_id}`);
-          const saved = await saveFacebookDataService.syncPageCMEarningsForWindow(
+          const saved = await pageSyncService.syncPageCMEarningsForWindow(
             page.fb_page_id,
             accessToken,
             since,
@@ -133,7 +118,7 @@ class IncrementalSyncTask extends BaseSyncTask {
               }
 
               this.log(`Appending missing post insight: ${metric} for ${post.fb_post_id}`);
-              const saved = await saveFacebookDataService.syncPostInsights({
+              const saved = await postSyncService.syncPostInsights({
                 fbPostId: post.fb_post_id,
                 facebookPostId: post.fb_post_id,
                 accessToken,
@@ -149,7 +134,7 @@ class IncrementalSyncTask extends BaseSyncTask {
 
             if (!existingPostEarnings) {
               this.log(`Appending missing post earnings for ${post.fb_post_id}`);
-              const saved = await saveFacebookDataService.syncPostCMEarningsForWindow(
+              const saved = await postSyncService.syncPostCMEarningsForWindow(
                 post.fb_post_id,
                 accessToken,
                 since,
@@ -164,12 +149,12 @@ class IncrementalSyncTask extends BaseSyncTask {
           }
         }
 
-        await saveFacebookDataService.updateSyncJob(syncJob.id, "completed");
+        await syncJobService.updateSyncJob(syncJob.id, "completed");
         pagesSucceeded++;
         this.log(`✅ Page ${page.fb_page_id} incremental-synced`);
       } catch (err) {
         this.error(`Failed incremental sync for page ${page.fb_page_id}`, err);
-        await saveFacebookDataService.updateSyncJob(
+        await syncJobService.updateSyncJob(
           syncJob.id,
           "failed",
           err instanceof Error ? err.message : String(err)

@@ -1,6 +1,6 @@
-import { BaseService } from "../core/base.service";
-import connectedPageRepository from "../repositories/ConnectedPage";
-import type { ConnectedPageCreateInput, ConnectedPageEntity } from "../types/domain";
+import { BaseService } from "../../core/base.service";
+import connectedPageRepository from "../../repositories/ConnectedPage";
+import type { ConnectedPageCreateInput, ConnectedPageEntity } from "../../types/domain";
 
 export class PageService extends BaseService {
   constructor() {

@@ -68,6 +68,25 @@ export class EarningsRepository extends BaseRepository<unknown> {
     ) as unknown as CmEarningsPageEntity[];
   }
 
+  async getPageEarningsByPageIdsAndRange(pageIds: string[], start: Date, end: Date): Promise<CmEarningsPageEntity[]> {
+    if (pageIds.length === 0) {
+      return [];
+    }
+
+    return PrismaHelpers.normalizeRecords(
+      await this.pageDelegate.findMany({
+        where: {
+          page_id: { in: pageIds },
+          end_time: {
+            gte: start,
+            lte: end,
+          },
+        },
+        orderBy: [{ end_time: "asc" }, { page_id: "asc" }],
+      })
+    ) as unknown as CmEarningsPageEntity[];
+  }
+
   async createPageEarnings(earningsData: PageEarningsCreateInput): Promise<CmEarningsPageEntity> {
     const validation = validateData("cm_earnings_page", earningsData as unknown as Record<string, unknown>);
     if (!validation.valid) {

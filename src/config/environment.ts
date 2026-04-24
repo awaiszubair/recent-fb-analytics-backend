@@ -47,4 +47,8 @@ export class Environment {
   static get pageTokenEncryptionSecret(): string | undefined {
     return process.env.PAGE_TOKEN_ENCRYPTION_SECRET || process.env.TOKEN_ENCRYPTION_SECRET || process.env.FB_APP_SECRET;
   }
+
+  static get revenueExportApiKey(): string | undefined {
+    return process.env.REVENUE_EXPORT_API_KEY || process.env.ADMIN_API_KEY;
+  }
 }

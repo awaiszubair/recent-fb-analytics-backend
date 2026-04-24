@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { BaseController } from "../core/base.controller";
-import partnerService from "../services/partner.service";
+import partnerService from "../services/partner/partner.service";
 import { ResponseFormatter } from "../utils/formatter";
 
 export class PartnerController extends BaseController {
