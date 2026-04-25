@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>CodeFlow Visualizer</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   :root{
@@ -152,6 +154,30 @@
   ::-webkit-scrollbar-track{background:var(--surface)}
   ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
   ::-webkit-scrollbar-thumb:hover{background:var(--text2)}
+
+  /* FLOWCHART PANEL */
+  #fc-panel{
+    position:absolute;inset:0;display:none;flex-direction:column;
+    background:var(--bg);z-index:10;overflow:hidden;
+  }
+  #fc-panel.active{display:flex}
+  .fc-header{
+    padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+    font-size:13px;font-weight:600;color:var(--text)
+  }
+  .fc-scroll{flex:1;overflow:auto;padding:20px;display:flex;justify-content:center}
+  .fc-hint{
+    display:flex;align-items:center;justify-content:center;height:100%;
+    color:var(--text2);font-size:13px;flex-direction:column;gap:12px
+  }
+  .fc-hint-icon{font-size:40px}
+  #fc-legend{
+    display:flex;gap:16px;padding:8px 16px;background:var(--surface);
+    border-top:1px solid var(--border);flex-shrink:0;flex-wrap:wrap
+  }
+  .fc-leg{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text2)}
+  .fc-leg-box{width:24px;height:14px;border-radius:3px;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -174,6 +200,8 @@
   <button class="tb-btn" id="btnAsync" title="Highlight async functions">⚡ Async</button>
   <button class="tb-btn" id="btnExported" title="Highlight exports">↑ Exports</button>
   <button class="tb-btn" id="btnResetFilter" title="Reset all filters">✕ Reset</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" id="btnFlowchart" title="Toggle flowchart view — click a node to see its flowchart">📊 Flowchart</button>
   <span id="stats"></span>
 </div>
 
@@ -181,6 +209,25 @@
   <div style="position:relative;flex:1;display:flex">
     <div id="cy"></div>
     <div id="minimap"></div>
+    <!-- FLOWCHART OVERLAY -->
+    <div id="fc-panel">
+      <div class="fc-header">
+        <span>📊 Flowchart View</span>
+        <span style="color:var(--text2);font-size:11px">Click any node in the graph first, then switch to Flowchart mode</span>
+      </div>
+      <div class="fc-scroll">
+        <div class="fc-hint"><div class="fc-hint-icon">📊</div><span>Click a function node, then toggle Flowchart to see its control flow</span></div>
+      </div>
+      <div id="fc-legend">
+        <div class="fc-leg"><div class="fc-leg-box" style="background:#58a6ff;opacity:.7"></div>Start / End</div>
+        <div class="fc-leg"><div class="fc-leg-box" style="background:#bc8cff;opacity:.7"></div>Call / Await</div>
+        <div class="fc-leg"><div class="fc-leg-box" style="background:#e3b341;opacity:.7;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)"></div>Decision (if)</div>
+        <div class="fc-leg"><div class="fc-leg-box" style="background:#e3b341;opacity:.5;border-left:3px solid #e3b341"></div>Loop</div>
+        <div class="fc-leg"><div class="fc-leg-box" style="background:#3fb950;opacity:.7"></div>Return</div>
+        <div class="fc-leg"><div class="fc-leg-box" style="background:#f78166;opacity:.7"></div>Throw / Catch</div>
+        <div class="fc-leg"><div class="fc-leg-box" style="background:#30363d;border:1px solid #58a6ff33"></div>Statement</div>
+      </div>
+    </div>
     <div id="legend">
       <div class="leg-row"><div class="leg-dot" style="background:#58a6ff"></div>Regular Function</div>
       <div class="leg-row"><div class="leg-dot" style="background:#bc8cff"></div>Async Function</div>
@@ -243,6 +290,14 @@ function buildSignature(n) {
 let cy;
 let activeFilter = null;
 let selectedNode = null;
+let isFlowchartMode = false;
+
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'dark',
+  flowchart: { htmlLabels: true, curve: 'basis', nodeSpacing: 30, rankSpacing: 40 },
+  themeVariables: { primaryColor: '#161b22', primaryTextColor: '#e6edf3', primaryBorderColor: '#30363d', lineColor: '#8b949e' }
+});
 
 function initGraph() {
   const nodes = GRAPH_DATA.nodes.map(n => ({
@@ -393,6 +448,7 @@ function selectNode(cyNode, nodeData) {
   connected.forEach(el => { el.removeClass('faded'); if(el.isEdge()) el.addClass('highlighted'); });
 
   renderSidebar(nodeData);
+  if (isFlowchartMode) renderFlowchart(nodeData);
 }
 
 function clearSelection() {
@@ -515,6 +571,76 @@ function updateStats() {
 // ── Toolbar ──────────────────────────────────────────────────────────────────
 document.getElementById('btnLayout').addEventListener('click', () => {
   cy.layout({ name: 'cose', animate: true, animationDuration: 600, randomize: true, nodeDimensionsIncludeLabels: true }).run();
+});
+
+document.getElementById('btnFlowchart').addEventListener('click', function() {
+  isFlowchartMode = !isFlowchartMode;
+  this.classList.toggle('active', isFlowchartMode);
+  const fcPanel = document.getElementById('fc-panel');
+  fcPanel.classList.toggle('active', isFlowchartMode);
+  
+  if (isFlowchartMode && selectedNode) {
+    renderFlowchart(selectedNode);
+  }
+});
+
+
+// Remove old AST flowchart rendering logic
+// We now rely on the VS Code extension host to call the Groq LLM
+
+async function renderFlowchart(node) {
+  const scrollBox = document.querySelector('.fc-scroll');
+  scrollBox.innerHTML = `
+    <div class="fc-hint">
+      <div class="spinner"></div>
+      <span>Generating smart flowchart using Groq LLM...</span>
+    </div>`;
+
+  // Request the flowchart from VS Code
+  vscode.postMessage({
+    command: 'generateFlowchart',
+    node: {
+      id: node.id,
+      name: node.name,
+      filePath: node.filePath,
+      line: node.line
+    }
+  });
+}
+
+// Listen for the result from VS Code
+window.addEventListener('message', async event => {
+  const message = event.data;
+  if (message.command === 'flowchartResult') {
+    const scrollBox = document.querySelector('.fc-scroll');
+    if (message.error) {
+      scrollBox.innerHTML = `<div class="fc-hint"><div class="fc-hint-icon">❌</div><span>Error:</span><pre style="font-size:10px;color:red;white-space:pre-wrap;text-align:left;max-width:400px">${message.error}</pre></div>`;
+      return;
+    }
+
+    try {
+      // The LLM returns a full mermaid graph string
+      const { svg } = await mermaid.render('mm-graph-' + Date.now(), message.mermaidCode);
+      scrollBox.innerHTML = svg;
+      
+      const svgEl = scrollBox.querySelector('svg');
+      if (svgEl) {
+        svgEl.style.width = '100%';
+        svgEl.style.height = '100%';
+        svgPanZoom(svgEl, {
+          zoomEnabled: true,
+          controlIconsEnabled: true,
+          fit: true,
+          center: true,
+          minZoom: 0.1,
+          maxZoom: 10
+        });
+      }
+    } catch (err) {
+      console.error("Mermaid error:", err);
+      scrollBox.innerHTML = `<div class="fc-hint"><div class="fc-hint-icon">❌</div><span>Error rendering Mermaid diagram.</span><pre style="font-size:10px;color:red;white-space:pre-wrap;text-align:left;max-width:400px">${err.message}\n\nGenerated Code:\n${message.mermaidCode}</pre></div>`;
+    }
+  }
 });
 
 document.getElementById('btnFitAll').addEventListener('click', () => {

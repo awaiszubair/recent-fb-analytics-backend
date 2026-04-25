@@ -87,6 +87,11 @@
             "**/*.d.ts"
           ],
           "description": "Glob patterns to exclude from analysis"
+        },
+        "codeflow.groqApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API Key for Groq (llama-3.3-70b-versatile) to generate smart flowcharts."
         }
       }
     }
