@@ -28,6 +28,8 @@ export class PageSyncService {
     page_token_encrypted?: string | null;
     fan_count?: number | string | bigint;
     is_active?: boolean;
+    picture_url?: string | null;
+    category?: string | null;
     last_synced_at?: Date | null;
   }): Promise<ConnectedPageEntity> {
     return pageRepository.upsertPage({
@@ -36,6 +38,8 @@ export class PageSyncService {
       page_name: pageData.page_name || null,
       page_token_encrypted: pageData.page_token_encrypted ? encryptPageToken(pageData.page_token_encrypted) : null,
       fan_count: pageData.fan_count || 0,
+      picture_url: pageData.picture_url || null,
+      category: pageData.category || null,
       is_active: pageData.is_active !== false,
       last_synced_at: pageData.last_synced_at || new Date(),
     } satisfies ConnectedPageCreateInput);

@@ -24,6 +24,8 @@ model ConnectedPage {
   fb_page_id          String
   page_name           String?
   page_token_encrypted String?
+  picture_url          String?
+  category             String?
   fan_count           BigInt   @default(0)
   is_active           Boolean  @default(true)
   last_synced_at      DateTime? @db.Timestamptz(6)
@@ -41,6 +43,9 @@ model Post {
   fb_post_id    String
   message       String?
   type          String?
+  full_picture  String?
+  comments_count Int      @default(0)
+  shares_count   Int      @default(0)
   permalink     String?
   created_time  DateTime? @db.Timestamptz(6)
   synced_at     DateTime @default(now()) @db.Timestamptz(6)

@@ -57,6 +57,24 @@ class FullSyncTask extends BaseSyncTask {
         }
 
         const accessToken = decryptPageToken(page.page_token_encrypted);
+
+        // Refresh Page Metadata (Branding, Category, Followers)
+        this.log(`Refreshing page metadata for ${page.fb_page_id}...`);
+        try {
+          const fbPage = await insightsService.getPageDetails(page.fb_page_id, { access_token: accessToken });
+          await pageSyncService.syncPage({
+            partner_id: page.partner_id,
+            fb_page_id: page.fb_page_id,
+            page_name: fbPage.data.name,
+            category: fbPage.data.category,
+            picture_url: fbPage.data.picture?.data?.url,
+            fan_count: fbPage.data.fan_count,
+            page_token_encrypted: accessToken, // Will be re-encrypted
+          });
+        } catch (metaErr) {
+          this.warn(`Failed to refresh metadata for page ${page.fb_page_id}: ${metaErr instanceof Error ? metaErr.message : String(metaErr)}`);
+        }
+
         const syncUntil = this.getTodayIso();
         const pageWindowStart = this.getWindowStart(FULL_SYNC_PAGE_INSIGHT_DAYS);
         const earningsWindowStart = this.getWindowStart(FULL_SYNC_EARNINGS_DAYS);
@@ -103,6 +121,9 @@ class FullSyncTask extends BaseSyncTask {
               fb_post_id: fbPost.id,
               message: fbPost.message,
               type: fbPost.status_type,
+              full_picture: fbPost.full_picture,
+              comments_count: fbPost.comments?.summary?.total_count || 0,
+              shares_count: fbPost.shares?.count || 0,
               permalink: fbPost.permalink_url,
               created_time: fbPost.created_time,
             });

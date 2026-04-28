@@ -1,5 +1,6 @@
 import { BaseService } from "../../core/base.service";
 import connectedPageRepository from "../../repositories/ConnectedPage";
+import syncJobRepository from "../../repositories/SyncJob";
 import type { ConnectedPageCreateInput, ConnectedPageEntity } from "../../types/domain";
 
 export class PageService extends BaseService {
@@ -15,8 +16,14 @@ export class PageService extends BaseService {
     return connectedPageRepository.getPageById(pageId);
   }
 
-  getPartnerPages(partnerId: string): Promise<ConnectedPageEntity[]> {
-    return connectedPageRepository.getPartnerPages(partnerId);
+  async getPartnerPages(partnerId: string): Promise<ConnectedPageEntity[]> {
+    const pages = await connectedPageRepository.getPartnerPages(partnerId);
+    const latestJobsByPage = await syncJobRepository.getLatestCompletedByPageIds(pages.map((page) => page.id));
+
+    return pages.map((page) => ({
+      ...page,
+      latest_sync_completed_at: latestJobsByPage.get(page.id)?.completed_at || null,
+    }));
   }
 
   updatePage(pageId: string, updates: Partial<ConnectedPageCreateInput>): Promise<ConnectedPageEntity> {

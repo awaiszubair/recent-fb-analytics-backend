@@ -12,6 +12,8 @@ export interface FacebookUserProfile {
 export interface FacebookPage {
   id: string;
   name?: string;
+  category?: string;
+  picture?: { data: { url: string } };
   access_token?: string;
   fan_count?: number | string;
 }
@@ -23,6 +25,15 @@ export interface FacebookPost {
   permalink_url?: string;
   status_type?: string;
   type?: string;
+  full_picture?: string;
+  comments?: {
+    summary?: {
+      total_count?: number;
+    };
+  };
+  shares?: {
+    count?: number;
+  };
   attachments?: {
     data?: Array<{
       media_type?: string;

@@ -31,7 +31,11 @@ export class PostInsightsRepository extends BaseRepository<PostInsightEntity> {
     return this.findManyRecords({
       where: {
         post_id: fbPostId,
-        ...(Object.keys(endTimeFilter).length > 0 ? { end_time: endTimeFilter } : {}),
+        OR: [
+          ...(Object.keys(endTimeFilter).length > 0 ? [{ end_time: endTimeFilter }] : []),
+          { period: "lifetime" },
+          { end_time: null },
+        ],
       },
       orderBy: [{ end_time: "desc" }, { synced_at: "desc" }],
     });
@@ -47,7 +51,11 @@ export class PostInsightsRepository extends BaseRepository<PostInsightEntity> {
       where: {
         post_id: fbPostId,
         metric_name: metricName,
-        ...(Object.keys(endTimeFilter).length > 0 ? { end_time: endTimeFilter } : {}),
+        OR: [
+          ...(Object.keys(endTimeFilter).length > 0 ? [{ end_time: endTimeFilter }] : []),
+          { period: "lifetime" },
+          { end_time: null },
+        ],
       },
       orderBy: [{ end_time: "desc" }, { synced_at: "desc" }],
     });

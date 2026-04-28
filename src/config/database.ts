@@ -54,9 +54,9 @@ class DatabaseConnection {
       return;
     }
 
-    const pageInsightColumn = await this.prisma.$queryRawUnsafe<Array<{ data_type: string }>>(
+    const pageInsightColumn = (await this.prisma.$queryRawUnsafe(
       "SELECT data_type FROM information_schema.columns WHERE table_name = 'page_insights' AND column_name = 'page_id' LIMIT 1"
-    );
+    )) as Array<{ data_type: string }>;
 
     if (pageInsightColumn[0]?.data_type === "uuid") {
       await this.prisma.$executeRawUnsafe("ALTER TABLE page_insights ALTER COLUMN page_id TYPE TEXT USING page_id::TEXT");
@@ -65,9 +65,9 @@ class DatabaseConnection {
       );
     }
 
-    const postInsightColumn = await this.prisma.$queryRawUnsafe<Array<{ data_type: string }>>(
+    const postInsightColumn = (await this.prisma.$queryRawUnsafe(
       "SELECT data_type FROM information_schema.columns WHERE table_name = 'post_insights' AND column_name = 'post_id' LIMIT 1"
-    );
+    )) as Array<{ data_type: string }>;
 
     if (postInsightColumn[0]?.data_type === "uuid") {
       await this.prisma.$executeRawUnsafe("ALTER TABLE post_insights ALTER COLUMN post_id TYPE TEXT USING post_id::TEXT");

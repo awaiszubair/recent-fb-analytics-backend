@@ -24,12 +24,18 @@ export class PostSyncService {
     type?: string | null;
     permalink?: string | null;
     created_time?: string | Date | null;
+    full_picture?: string | null;
+    comments_count?: number | null;
+    shares_count?: number | null;
   }): Promise<PostEntity> {
     return postRepository.upsertPost({
       page_id: postData.page_id,
       fb_post_id: postData.fb_post_id,
       message: postData.message || null,
       type: postData.type || null,
+      full_picture: postData.full_picture || null,
+      comments_count: postData.comments_count || 0,
+      shares_count: postData.shares_count || 0,
       permalink: postData.permalink || null,
       created_time: postData.created_time ? new Date(postData.created_time) : undefined,
       synced_at: new Date(),

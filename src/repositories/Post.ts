@@ -14,6 +14,9 @@ export class PostRepository extends BaseRepository<PostEntity> {
   }
 
   getPostById(postId: string): Promise<PostEntity | null> {
+    if (postId.includes("_") || postId.length > 36) {
+      return this.getPostByFbPostId(postId);
+    }
     return this.findById(postId);
   }
 

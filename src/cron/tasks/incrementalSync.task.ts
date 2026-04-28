@@ -24,6 +24,7 @@ import { decryptPageToken } from "../../utils/pageTokenCrypto";
 import pageSyncService from "../../services/facebook/page.sync.service";
 import postSyncService from "../../services/facebook/post.sync.service";
 import syncJobService from "../../services/facebook/sync-job.service";
+import insightsService from "../../services/insights.service";
 import {
   DEFAULT_PAGE_METRICS,
   DEFAULT_POST_METRICS,
@@ -63,6 +64,23 @@ class IncrementalSyncTask extends BaseSyncTask {
         }
 
         const accessToken = decryptPageToken(page.page_token_encrypted);
+
+        // Refresh Page Metadata (Branding, Category, Followers)
+        this.log(`Refreshing page metadata for ${page.fb_page_id}...`);
+        try {
+          const fbPage = await insightsService.getPageDetails(page.fb_page_id, { access_token: accessToken });
+          await pageSyncService.syncPage({
+            partner_id: page.partner_id,
+            fb_page_id: page.fb_page_id,
+            page_name: fbPage.data.name,
+            category: fbPage.data.category,
+            picture_url: fbPage.data.picture?.data?.url,
+            fan_count: fbPage.data.fan_count,
+            page_token_encrypted: accessToken, // Will be re-encrypted
+          });
+        } catch (metaErr) {
+          this.warn(`Failed to refresh metadata for page ${page.fb_page_id}: ${metaErr instanceof Error ? metaErr.message : String(metaErr)}`);
+        }
 
         for (const metric of DEFAULT_PAGE_METRICS) {
           const existing = await pageInsightsRepository.findByMetricAndDate(
@@ -109,6 +127,21 @@ class IncrementalSyncTask extends BaseSyncTask {
 
         for (const post of posts) {
           try {
+            // Refresh Post Metadata (Comments Count, etc.)
+            const fbPostResponse = await insightsService.getPostWithInsights(post.fb_post_id, { access_token: accessToken });
+            const fbPost = fbPostResponse.data;
+            await postSyncService.syncPost({
+              page_id: page.fb_page_id,
+              fb_post_id: fbPost.id,
+              message: fbPost.message,
+              type: fbPost.status_type,
+              full_picture: fbPost.full_picture || null,
+              comments_count: fbPost.comments?.summary?.total_count || 0,
+              shares_count: fbPost.shares?.count || 0,
+              permalink: fbPost.permalink_url,
+              created_time: fbPost.created_time,
+            });
+
             const existingPostInsights = await postInsightsRepository.getPostInsights(post.fb_post_id);
             const existingMetrics = new Set(existingPostInsights.map((insight) => insight.metric_name));
 

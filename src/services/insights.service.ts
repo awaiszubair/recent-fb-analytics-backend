@@ -162,6 +162,24 @@ export class InsightsService extends BaseGraphClient {
     }
   }
 
+  async getPageDetails(pageId: string, options: GraphQueryOptions = {}): Promise<{ success: true; data: any }> {
+    try {
+      const { access_token, fields = "id,name,category,picture,fan_count" } = options;
+      if (!access_token) throw new Error("Access token is required");
+
+      const response = await this.http.get(`/${pageId}`, {
+        params: { access_token, fields },
+      });
+
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch page details: ${this.extractMessage(error)}`);
+    }
+  }
+
   async getUserPages(options: GraphQueryOptions = {}): Promise<{ success: true; data: unknown[] }> {
     try {
       const { access_token } = options;
@@ -169,7 +187,10 @@ export class InsightsService extends BaseGraphClient {
       if (!access_token) throw new Error("Access token is required");
 
       const response = await this.http.get(`/${"me/accounts"}`, {
-        params: { access_token },
+        params: { 
+          access_token,
+          fields: "id,name,access_token,category,picture,fan_count"
+        },
       });
 
       return {
@@ -212,6 +233,7 @@ export class InsightsService extends BaseGraphClient {
         // "message",
         // "type",
         "attachments{media,media_type,type}",
+        "comments.summary(true)",
         `insights.metric(content_monetization_earnings).period(day)${normalizedSince ? `.since(${normalizedSince})` : ""}${normalizedUntil ? `.until(${normalizedUntil})` : ""}`,
       ].join(",");
 
@@ -248,7 +270,7 @@ export class InsightsService extends BaseGraphClient {
         const params: Record<string, unknown> = {
           access_token,
           limit,
-          fields: "id,message,created_time,permalink_url,status_type",
+          fields: "id,message,created_time,permalink_url,status_type,full_picture,comments.summary(true),shares",
         };
 
         if (since) params.since = since;
@@ -407,13 +429,15 @@ export class InsightsService extends BaseGraphClient {
 
   async getMultiplePostInsights(postIds: string[], metrics: string[], options: GraphQueryOptions = {}): Promise<GraphBatchResult[]> {
     try {
-      const { access_token } = options;
+      const { access_token, since, until } = options;
 
       if (!access_token) throw new Error("Access token is required");
       if (!postIds || postIds.length === 0) throw new Error("At least one post ID is required");
       if (!metrics || metrics.length === 0) throw new Error("At least one metric is required");
 
-      const queryString = `metric=${metrics.join(",")}`;
+      let queryString = `metric=${metrics.join(",")}`;
+      if (since) queryString += `&since=${since}`;
+      if (until) queryString += `&until=${until}`;
       const postIdChunks = this.chunkArray(postIds, 50);
       const allResults: GraphBatchResult[] = [];
 

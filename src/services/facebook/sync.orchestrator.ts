@@ -92,6 +92,8 @@ export class FacebookSyncOrchestrator extends BaseService {
           page_name: fbPage.name || null,
           page_token_encrypted: fbPage.access_token || null,
           fan_count: fbPage.fan_count || 0,
+          category: fbPage.category || null,
+          picture_url: fbPage.picture?.data?.url || null,
           is_active: true,
           last_synced_at: new Date(),
         });
@@ -144,6 +146,9 @@ export class FacebookSyncOrchestrator extends BaseService {
                 fb_post_id: fbPost.id,
                 message: fbPost.message,
                 type: fbPost.status_type,
+                full_picture: fbPost.full_picture || null,
+                comments_count: fbPost.comments?.summary?.total_count || 0,
+                shares_count: fbPost.shares?.count || 0,
                 permalink: fbPost.permalink_url,
                 created_time: fbPost.created_time,
               });

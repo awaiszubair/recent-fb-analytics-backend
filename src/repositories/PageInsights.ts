@@ -31,7 +31,11 @@ export class PageInsightsRepository extends BaseRepository<PageInsightEntity> {
     return this.findManyRecords({
       where: {
         page_id: fbPageId,
-        ...(Object.keys(endTimeFilter).length > 0 ? { end_time: endTimeFilter } : {}),
+        OR: [
+          ...(Object.keys(endTimeFilter).length > 0 ? [{ end_time: endTimeFilter }] : []),
+          { period: "lifetime" },
+          { end_time: null },
+        ],
       },
       // orderBy: [{ end_time: "desc" }, { synced_at: "desc" }],
       orderBy: [{ metric_name: "asc" }, { end_time: "asc" }],
@@ -48,7 +52,11 @@ export class PageInsightsRepository extends BaseRepository<PageInsightEntity> {
       where: {
         page_id: fbPageId,
         metric_name: metricName,
-        ...(Object.keys(endTimeFilter).length > 0 ? { end_time: endTimeFilter } : {}),
+        OR: [
+          ...(Object.keys(endTimeFilter).length > 0 ? [{ end_time: endTimeFilter }] : []),
+          { period: "lifetime" },
+          { end_time: null },
+        ],
       },
       orderBy: [{ end_time: "desc" }, { synced_at: "desc" }],
     });

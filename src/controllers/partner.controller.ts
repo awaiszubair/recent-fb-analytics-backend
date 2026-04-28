@@ -8,7 +8,7 @@ export class PartnerController extends BaseController {
     try {
       const partnerData = req.body as Record<string, unknown>;
       const partner = await partnerService.createPartner(partnerData as never);
-      const formattedPartner = ResponseFormatter.formatUserDetails(partner as never);
+      const formattedPartner = ResponseFormatter.formatPartner(partner as never);
       return this.created(res, formattedPartner, "Partner created successfully");
     } catch (error) {
       return next(error);
@@ -24,7 +24,7 @@ export class PartnerController extends BaseController {
         return this.notFound(res, "Partner not found");
       }
 
-      const formattedPartner = ResponseFormatter.formatUserDetails(partner as never);
+      const formattedPartner = ResponseFormatter.formatPartner(partner as never);
       return this.ok(res, formattedPartner, "Partner retrieved successfully");
     } catch (error) {
       return next(error);
@@ -40,7 +40,7 @@ export class PartnerController extends BaseController {
         return this.notFound(res, "Partner not found");
       }
 
-      const formattedPartner = ResponseFormatter.formatUserDetails(partner as never);
+      const formattedPartner = ResponseFormatter.formatPartner(partner as never);
       return this.ok(res, formattedPartner, "Partner retrieved successfully");
     } catch (error) {
       return next(error);
@@ -50,7 +50,7 @@ export class PartnerController extends BaseController {
   getAllPartners = async (_req: Request, res: Response, next: NextFunction): Promise<Response | void> => {
     try {
       const partners = await partnerService.getAllPartners();
-      const formattedPartners = partners.map((partner) => ResponseFormatter.formatUserDetails(partner as never));
+      const formattedPartners = partners.map((partner) => ResponseFormatter.formatPartner(partner as never));
       return this.ok(res, formattedPartners, "Partners retrieved successfully");
     } catch (error) {
       return next(error);

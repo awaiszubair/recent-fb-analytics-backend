@@ -58,6 +58,8 @@ export class ConnectedPageRepository extends BaseRepository<ConnectedPageEntity>
       fb_page_id: pageData.fb_page_id,
       page_name: pageData.page_name ?? null,
       page_token_encrypted: pageData.page_token_encrypted ?? null,
+      picture_url: (pageData as any).picture_url ?? null,
+      category: (pageData as any).category ?? null,
       fan_count: normalizeFanCount(pageData.fan_count),
       is_active: pageData.is_active ?? true,
       last_synced_at: pageData.last_synced_at ?? null,

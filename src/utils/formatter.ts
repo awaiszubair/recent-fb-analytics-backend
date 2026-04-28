@@ -19,8 +19,8 @@ export class ResponseFormatter {
           for (const value of values) {
             insights.push({
               page_id: pageId,
-              metric_name: metricName,
-              metric_value: value.value ?? null,
+              name: metricName,
+              value: value.value ?? null,
               period,
               end_time: value.end_time ?? null,
             });
@@ -31,12 +31,12 @@ export class ResponseFormatter {
 
       if (Array.isArray(response)) {
         for (const item of response) {
-          if (typeof item === "object" && item !== null && "metric_name" in item) {
+          if (typeof item === "object" && item !== null && ("metric_name" in item || "name" in item)) {
             const insight = item as AnyRecord;
             insights.push({
               page_id: pageId,
-              metric_name: insight.metric_name ?? "unknown",
-              metric_value: insight.metric_value ?? null,
+              name: insight.name || insight.metric_name || "unknown",
+              value: insight.value !== undefined ? insight.value : insight.metric_value ?? null,
               period: insight.period ?? "day",
               end_time: insight.end_time ?? null,
             });
@@ -67,8 +67,8 @@ export class ResponseFormatter {
           for (const value of values) {
             insights.push({
               post_id: postId,
-              metric_name: metricName,
-              metric_value: value.value ?? null,
+              name: metricName,
+              value: value.value ?? null,
               period: item.period ?? null,
               end_time: value.end_time ?? null,
             });
@@ -79,12 +79,12 @@ export class ResponseFormatter {
 
       if (Array.isArray(response)) {
         for (const item of response) {
-          if (typeof item === "object" && item !== null && "metric_name" in item) {
+          if (typeof item === "object" && item !== null && ("metric_name" in item || "name" in item)) {
             const insight = item as AnyRecord;
             insights.push({
               post_id: postId,
-              metric_name: insight.metric_name ?? "unknown",
-              metric_value: insight.metric_value ?? null,
+              name: insight.name || insight.metric_name || "unknown",
+              value: insight.value !== undefined ? insight.value : insight.metric_value ?? null,
               period: insight.period ?? null,
               end_time: insight.end_time ?? null,
             });
@@ -180,16 +180,39 @@ export class ResponseFormatter {
 
       return {
         partner_id: partnerId,
-        fb_page_id: response.id || response.fb_page_id || null,
+        fb_page_id: response.fb_page_id || response.id || null,
         page_name: response.name || response.page_name || null,
         page_token_encrypted: response.page_token_encrypted || null,
+        picture_url: response.picture_url || (response.picture as any)?.data?.url || null,
+        category: response.category || null,
         fan_count: response.fan_count ? Number(response.fan_count) : 0,
         is_active: response.is_active !== undefined ? response.is_active : true,
         last_synced_at: response.last_synced_at || null,
+        latest_sync_completed_at: response.latest_sync_completed_at || null,
       };
     } catch (error) {
       console.error("Error formatting connected page:", error);
       return { partner_id: partnerId };
+    }
+  }
+
+  static formatPartner(response: AnyRecord | null | undefined): AnyRecord {
+    try {
+      if (!response) {
+        return {};
+      }
+
+      return {
+        partner_id: response.id || null,
+        user_id: response.user_id || null,
+        name: response.name || null,
+        email: response.email || null,
+        company: response.company || null,
+        created_at: response.created_at || null,
+      };
+    } catch (error) {
+      console.error("Error formatting partner:", error);
+      return {};
     }
   }
 
@@ -201,9 +224,12 @@ export class ResponseFormatter {
 
       return {
         page_id: pageId,
-        fb_post_id: response.id || response.fb_post_id || null,
+        fb_post_id: response.fb_post_id || response.id || null,
         message: response.message || null,
         type: response.type || response.status_type || null,
+        full_picture: response.full_picture || (response as any).full_picture || null,
+        comments_count: response.comments_count || (response.comments as any)?.summary?.total_count || 0,
+        shares_count: response.shares_count || (response.shares as any)?.count || 0,
         permalink: response.permalink || response.permalink_url || null,
         created_time: response.created_time || null,
       };
@@ -254,5 +280,6 @@ export const formatUserDetails = ResponseFormatter.formatUserDetails;
 export const formatCommentsCount = ResponseFormatter.formatCommentsCount;
 export const formatSharesCount = ResponseFormatter.formatSharesCount;
 export const formatConnectedPage = ResponseFormatter.formatConnectedPage;
+export const formatPartner = ResponseFormatter.formatPartner;
 export const formatPost = ResponseFormatter.formatPost;
 export const getNestedValue = ResponseFormatter.getNestedValue;

@@ -27,9 +27,12 @@ export interface ConnectedPageEntity extends BaseEntity {
   fb_page_id: string;
   page_name?: string | null;
   page_token_encrypted?: string | null;
+  picture_url?: string | null;
+  category?: string | null;
   fan_count: bigint | number | string;
   is_active: boolean;
   last_synced_at?: Date | null;
+  latest_sync_completed_at?: Date | null;
   created_at: Date;
 }
 
@@ -38,6 +41,9 @@ export interface PostEntity extends BaseEntity {
   fb_post_id: string;
   message?: string | null;
   type?: string | null;
+  full_picture?: string | null;
+  comments_count?: number | null;
+  shares_count?: number | null;
   permalink?: string | null;
   created_time?: Date | null;
   synced_at: Date;
@@ -114,6 +120,8 @@ export interface ConnectedPageCreateInput {
   fb_page_id: string;
   page_name?: string | null;
   page_token_encrypted?: string | null;
+  picture_url?: string | null;
+  category?: string | null;
   fan_count?: bigint | number | string;
   is_active?: boolean;
   last_synced_at?: Date | null;
@@ -124,6 +132,9 @@ export interface PostCreateInput {
   fb_post_id: string;
   message?: string | null;
   type?: string | null;
+  full_picture?: string | null;
+  comments_count?: number | null;
+  shares_count?: number | null;
   permalink?: string | null;
   created_time?: Date | null;
   synced_at?: Date;

@@ -37,6 +37,30 @@ export class SyncJobRepository extends BaseRepository<SyncJobEntity> {
       take: 5,
     });
   }
+
+  async getLatestCompletedByPageIds(pageIds: string[]): Promise<Map<string, SyncJobEntity>> {
+    if (pageIds.length === 0) {
+      return new Map();
+    }
+
+    const jobs = await this.findManyRecords({
+      where: {
+        page_id: { in: pageIds } as never,
+        status: "completed",
+      },
+      orderBy: { completed_at: "desc" },
+    });
+
+    const latestByPage = new Map<string, SyncJobEntity>();
+
+    for (const job of jobs) {
+      if (!latestByPage.has(job.page_id)) {
+        latestByPage.set(job.page_id, job);
+      }
+    }
+
+    return latestByPage;
+  }
 }
 
 export default new SyncJobRepository();

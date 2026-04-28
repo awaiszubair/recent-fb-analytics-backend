@@ -8,14 +8,21 @@ export class SaveFacebookDataController extends BaseController {
     try {
       const body = req.body as { access_token?: string; accessToken?: string };
       const authReq = req as Request & { facebookAuth?: { userLongToken?: string } };
-      const accessToken = body.access_token || body.accessToken || authReq.facebookAuth?.userLongToken;
+      const accessToken = authReq.facebookAuth?.userLongToken || body.access_token || body.accessToken;
 
       if (!accessToken) {
         return this.badRequest(res, "access_token is required");
       }
 
       const result = await saveFacebookDataService.initialConnectionSync(accessToken);
-      return this.ok(res, result, "Initial connection sync complete");
+      return this.ok(
+        res,
+        {
+          ...result,
+          accessToken,
+        },
+        "Initial connection sync complete"
+      );
     } catch (error) {
       return this.fail(res, error instanceof Error ? error.message : String(error), 500, error);
     }

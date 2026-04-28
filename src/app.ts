@@ -8,6 +8,8 @@ import insightsRoutes from "./routes/insights.routes";
 import partnerRoutes from "./routes/partner.routes";
 import pageRoutes from "./routes/page.routes";
 import postRoutes from "./routes/post.routes";
+import pageInsightsRoutes from "./routes/page_insights.routes";
+import postInsightsRoutes from "./routes/post_insights.routes";
 import revenueExportRoutes from "./routes/revenueExport.routes";
 import saveFacebookDataRoutes from "./routes/saveFacebookData.routes";
 import auth from "./middleware/auth";
@@ -39,6 +41,8 @@ app.get("/health", (_req, res) => {
 });
 
 app.use(`${Environment.apiPrefix}/insights`, insightsRoutes);
+app.use(`${Environment.apiPrefix}/page-insights`, pageInsightsRoutes);
+app.use(`${Environment.apiPrefix}/post-insights`, postInsightsRoutes);
 app.use(`${Environment.apiPrefix}/partners`, partnerRoutes);
 app.use(`${Environment.apiPrefix}/pages`, pageRoutes);
 app.use(`${Environment.apiPrefix}/posts`, postRoutes);
