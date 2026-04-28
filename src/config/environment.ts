@@ -51,4 +51,21 @@ export class Environment {
   static get revenueExportApiKey(): string | undefined {
     return process.env.REVENUE_EXPORT_API_KEY || process.env.ADMIN_API_KEY;
   }
+
+  // Cloudflare R2 Configuration
+  static get r2AccountId(): string | undefined {
+    return process.env.R2_ACCOUNT_ID;
+  }
+
+  static get r2AccessKeyId(): string | undefined {
+    return process.env.R2_ACCESS_KEY_ID;
+  }
+
+  static get r2SecretAccessKey(): string | undefined {
+    return process.env.R2_SECRET_ACCESS_KEY;
+  }
+
+  static get r2BucketName(): string {
+    return process.env.R2_BUCKET_NAME || "newsbomb";
+  }
 }

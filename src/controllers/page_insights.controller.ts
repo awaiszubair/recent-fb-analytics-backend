@@ -168,6 +168,48 @@ export class PageInsightsController extends BaseController {
       return next(error);
     }
   };
+  exportPageReport = async (req: Request, res: Response, next: NextFunction): Promise<Response | void> => {
+    try {
+      const { fbPageId, since: pSince, until: pUntil } = req.params as Record<string, string>;
+      const { since: qSince, until: qUntil } = req.query as Record<string, string>;
+      const since = pSince || qSince;
+      const until = pUntil || qUntil;
+
+      let realFbPageId = fbPageId;
+      if (isUuid(fbPageId)) {
+        const page = await connectedPageRepository.getPageById(fbPageId);
+        if (page) {
+          realFbPageId = page.fb_page_id;
+        }
+      }
+
+      // Re-use logic from getPageInsights to get all data
+      const insights = await pageInsightsService.getPageInsights(realFbPageId, { since, until });
+
+      const earnings = await earningsRepository.getPageEarnings(realFbPageId);
+      const syntheticEarnings: any[] = [];
+      for (const e of earnings) {
+        syntheticEarnings.push({
+          page_id: realFbPageId,
+          metric_name: "content_monetization_earnings",
+          metric_value: { microAmount: e.earnings_amount },
+          period: e.period || "day",
+          end_time: e.end_time,
+        });
+      }
+
+      const allInsights = [...(insights || []), ...syntheticEarnings];
+
+      // Delay importing ReportService to avoid circular dependency issues at boot if any
+      const { default: reportService } = await import("../services/report.service");
+      
+      const fileUrl = await reportService.generateAndUploadPageReport(realFbPageId, since, until, allInsights);
+
+      return this.ok(res, { url: fileUrl }, "Report exported successfully");
+    } catch (error) {
+      return next(error);
+    }
+  };
 }
 
 export default new PageInsightsController();
