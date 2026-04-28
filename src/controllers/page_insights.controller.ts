@@ -42,6 +42,13 @@ export class PageInsightsController extends BaseController {
           period: e.period || "day",
           end_time: e.end_time,
         });
+        syntheticEarnings.push({
+          page_id: realFbPageId,
+          metric_name: "content_type_breakdown",
+          metric_value: e.content_type_breakdown ?? null,
+          period: e.period || "day",
+          end_time: e.end_time,
+        });
       }
 
       const allInsights = [...(insights || []), ...syntheticEarnings];
@@ -126,6 +133,13 @@ export class PageInsightsController extends BaseController {
           period: e.period || "day",
           end_time: e.end_time,
         });
+        earningsByPage.get(e.page_id)?.push({
+          page_id: e.page_id,
+          metric_name: "content_type_breakdown",
+          metric_value: e.content_type_breakdown ?? null,
+          period: e.period || "day",
+          end_time: e.end_time,
+        });
       }
 
       const results = await Promise.all(
@@ -193,6 +207,13 @@ export class PageInsightsController extends BaseController {
           page_id: realFbPageId,
           metric_name: "content_monetization_earnings",
           metric_value: { microAmount: e.earnings_amount },
+          period: e.period || "day",
+          end_time: e.end_time,
+        });
+        syntheticEarnings.push({
+          page_id: realFbPageId,
+          metric_name: "content_type_breakdown",
+          metric_value: e.content_type_breakdown ?? null,
           period: e.period || "day",
           end_time: e.end_time,
         });
