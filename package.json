@@ -10,6 +10,7 @@
     "dev": "nodemon --watch src --watch server.ts --ext ts,json --exec ts-node server.ts",
     "worker": "ts-node src/workers/facebookSync.worker.ts",
     "dev:worker": "nodemon --watch src --ext ts,json --exec ts-node src/workers/facebookSync.worker.ts",
+    "start:worker": "node dist/src/workers/facebookSync.worker.js",
     "infra:up": "docker-compose up -d",
     "infra:down": "docker-compose down",
     "db:migrate": "prisma migrate dev",
