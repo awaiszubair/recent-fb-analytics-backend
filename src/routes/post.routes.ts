@@ -7,6 +7,9 @@ export class PostRoutes extends BaseRoute {
     this.router.get("/page/:pageId", postController.getPagePosts);
     this.router.get("/:postId/insights/:since/:until", postInsightsController.getPostInsights);
     this.router.get("/:postId/insights/:metricName/:since/:until", postInsightsController.getPostMetrics);
+    this.router.get("/:postId/comments", postController.getPostComments);
+    this.router.get("/:postId/comments-count", postController.getPostCommentsCount);
+    this.router.get("/:postId/shares-count", postController.getPostSharesCount);
     this.router.get("/:postId", postController.getPostById);
     this.router.post("/", postController.createPost);
     this.router.post("/:postId/insights", postInsightsController.createPostInsight);

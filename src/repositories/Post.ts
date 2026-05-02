@@ -1,6 +1,15 @@
 import { getDB } from "../config/database";
 import { BaseRepository } from "../core/base.repository";
-import type { PostCreateInput, PostEntity } from "../types/domain";
+import type { GraphQueryOptions, PostCreateInput, PostEntity } from "../types/domain";
+
+const normalizeRangeBoundary = (value: string, boundary: "since" | "until"): Date => {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const suffix = boundary === "since" ? "T00:00:00.000Z" : "T23:59:59.999Z";
+    return new Date(`${value}${suffix}`);
+  }
+
+  return new Date(value);
+};
 
 export class PostRepository extends BaseRepository<PostEntity> {
   protected readonly tableName = "posts";
@@ -26,9 +35,21 @@ export class PostRepository extends BaseRepository<PostEntity> {
     }).then((posts) => posts[0] || null);
   }
 
-  getPagePosts(pageId: string): Promise<PostEntity[]> {
+  getPagePosts(pageId: string, options: Pick<GraphQueryOptions, "since" | "until"> = {}): Promise<PostEntity[]> {
+    const { since, until } = options;
+    const created_time =
+      since || until
+        ? {
+            ...(since ? { gte: normalizeRangeBoundary(since, "since") } : {}),
+            ...(until ? { lte: normalizeRangeBoundary(until, "until") } : {}),
+          }
+        : undefined;
+
     return this.findManyRecords({
-      where: { page_id: pageId },
+      where: {
+        page_id: pageId,
+        ...(created_time ? { created_time } : {}),
+      },
       orderBy: { created_time: "desc" },
     });
   }

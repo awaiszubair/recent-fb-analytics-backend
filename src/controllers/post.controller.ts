@@ -5,6 +5,7 @@ import postRepository from "../repositories/Post";
 import connectedPageRepository from "../repositories/ConnectedPage";
 import { ResponseFormatter } from "../utils/formatter";
 import { isUuid } from "../utils/uuid";
+import { decryptPageToken } from "../utils/pageTokenCrypto";
 
 export class PostController extends BaseController {
   getPostById = async (req: Request, res: Response, next: NextFunction): Promise<Response | void> => {
@@ -33,6 +34,7 @@ export class PostController extends BaseController {
   getPagePosts = async (req: Request, res: Response, next: NextFunction): Promise<Response | void> => {
     try {
       const { pageId } = req.params as Record<string, string>;
+      const { since, until } = req.query as Record<string, string>;
       let realPageId = pageId;
       if (isUuid(pageId)) {
         const page = await connectedPageRepository.getPageById(pageId);
@@ -40,7 +42,7 @@ export class PostController extends BaseController {
           realPageId = page.fb_page_id;
         }
       }
-      const posts = await postService.getPagePosts(realPageId);
+      const posts = await postService.getPagePosts(realPageId, { since, until });
       console.log(`[PostController] Found ${posts.length} posts for page ${realPageId}`);
       const formattedPosts = posts.map((post) => ResponseFormatter.formatPost(realPageId, post as never));
       return this.ok(res, formattedPosts, "Posts retrieved successfully");
@@ -56,6 +58,87 @@ export class PostController extends BaseController {
       const post = await postService.createPost(postData as never);
       const formattedPost = ResponseFormatter.formatPost(post.page_id, post as never);
       return this.created(res, formattedPost, "Post created successfully");
+    } catch (error) {
+      return next(error);
+    }
+  };
+
+  getPostComments = async (req: Request, res: Response, next: NextFunction): Promise<Response | void> => {
+    try {
+      const { postId } = req.params as Record<string, string>;
+      const pageId = req.query.pageId as string;
+
+      if (!pageId) {
+        return this.badRequest(res, "pageId is required");
+      }
+
+      let realPageId = pageId;
+      if (isUuid(pageId)) {
+        const page = await connectedPageRepository.getPageById(pageId);
+        if (page) {
+          realPageId = page.fb_page_id;
+        }
+      }
+
+      const page = await connectedPageRepository.getPageByFbPageId(realPageId);
+      if (!page || !page.page_token_encrypted) {
+        return this.notFound(res, "Page or page access token not found");
+      }
+
+      const decryptedToken = decryptPageToken(page.page_token_encrypted);
+      const fbResponse = await fetch(`https://graph.facebook.com/v25.0/${postId}/comments?access_token=${decryptedToken}`);
+      const fbData = await fbResponse.json();
+
+      if (fbData.error) {
+        return this.fail(res, fbData.error.message || "Facebook API error");
+      }
+
+      return this.ok(res, fbData.data || [], "Comments retrieved successfully");
+    } catch (error) {
+      console.error(`[PostController] Error getting comments for post ${req.params.postId}:`, error);
+      return next(error);
+    }
+  };
+
+  getPostCommentsCount = async (req: Request, res: Response, next: NextFunction): Promise<Response | void> => {
+    try {
+      const { postId } = req.params as Record<string, string>;
+
+      if (!postId) {
+        return this.badRequest(res, "Post ID is required");
+      }
+
+      const post = await postRepository.getPostById(postId);
+
+      const formattedData = {
+        post_id: postId,
+        metric_name: "comments.summary.total_count",
+        metric_value: post?.comments_count || 0,
+      };
+
+      return this.ok(res, formattedData, "Post comments count retrieved successfully");
+    } catch (error) {
+      return next(error);
+    }
+  };
+
+  getPostSharesCount = async (req: Request, res: Response, next: NextFunction): Promise<Response | void> => {
+    try {
+      const { postId } = req.params as Record<string, string>;
+
+      if (!postId) {
+        return this.badRequest(res, "Post ID is required");
+      }
+
+      const post = await postRepository.getPostById(postId);
+
+      const formattedData = {
+        post_id: postId,
+        metric_name: "shares.count",
+        metric_value: post?.shares_count || 0,
+      };
+
+      return this.ok(res, formattedData, "Post shares count retrieved successfully");
     } catch (error) {
       return next(error);
     }
